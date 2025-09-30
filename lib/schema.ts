@@ -17,7 +17,7 @@ export const user = mysqlTable('user', {
   name: varchar('name', { length: 255 }),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  email: varchar('email', { length: 255 }).notNull().unique(),
+  email: varchar('email', { length: 255 }).unique(),
   emailVerified: datetime('emailVerified'),
   image: text('image'),
   profilePicture: varchar("profile_picture", { length: 255 }),

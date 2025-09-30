@@ -176,8 +176,8 @@ export default function UsersList() {
     const templateHeaders = ['Name', 'Phone', 'Email', 'Notes', 'Date Created'];
     const sampleData = [
       ['John Doe', '+1234567890', 'john.doe@example.com', 'Sample user notes', '2024-01-15'],
-      ['Jane Smith', '+1987654321', 'jane.smith@example.com', 'Another sample user', '2024-01-16'],
-      ['Bob Johnson', '+1555123456', 'bob.johnson@example.com', '', '2024-01-17']
+      ['Jane Smith', '+1987654321', '', 'User with phone only', '2024-01-16'],
+      ['Bob Johnson', '', 'bob.johnson@example.com', 'User with email only', '2024-01-17']
     ];
 
     const csvContent = [
@@ -587,7 +587,7 @@ export default function UsersList() {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-3">
-                    Upload a CSV or Excel file with user data. Required columns: Name, Phone, Email, Notes, Date Created.
+                    Upload a CSV or Excel file with user data. Required columns: Name, and either Phone or Email (or both). Optional columns: Notes, Date Created.
                   </p>
                   
                   <div className="mb-4">

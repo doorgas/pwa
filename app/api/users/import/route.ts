@@ -114,13 +114,16 @@ export async function POST(req: NextRequest) {
     const headers = rows[0].map(h => h.toLowerCase().trim());
     const dataRows = rows.slice(1);
     
-    // Validate required columns
-    const requiredColumns = ['name', 'phone', 'email'];
-    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-    
-    if (missingColumns.length > 0) {
+    // Validate required columns - name is required, but either email or phone must be present
+    if (!headers.includes('name')) {
       return NextResponse.json({ 
-        error: `Missing required columns: ${missingColumns.join(', ')}` 
+        error: 'Missing required column: name' 
+      }, { status: 400 });
+    }
+    
+    if (!headers.includes('email') && !headers.includes('phone')) {
+      return NextResponse.json({ 
+        error: 'Either email or phone column must be present' 
       }, { status: 400 });
     }
     
@@ -156,24 +159,41 @@ export async function POST(req: NextRequest) {
           continue;
         }
         
-        if (!email) {
-          result.errors.push(`Row ${rowNum}: Email is required`);
+        // Either email or phone must be provided
+        if (!email && !phone) {
+          result.errors.push(`Row ${rowNum}: Either email or phone is required`);
           continue;
         }
         
-        if (!isValidEmail(email)) {
+        // Validate email format if provided
+        if (email && !isValidEmail(email)) {
           result.errors.push(`Row ${rowNum}: Invalid email format`);
           continue;
         }
         
-        // Check if user already exists
-        const existingUser = await db.query.user.findFirst({
-          where: (users, { eq }) => eq(users.email, email)
-        });
+        // Check if user already exists (by email or phone)
+        let existingUser = null;
         
-        if (existingUser) {
-          result.errors.push(`Row ${rowNum}: User with email ${email} already exists`);
-          continue;
+        if (email) {
+          existingUser = await db.query.user.findFirst({
+            where: (users, { eq }) => eq(users.email, email)
+          });
+          
+          if (existingUser) {
+            result.errors.push(`Row ${rowNum}: User with email ${email} already exists`);
+            continue;
+          }
+        }
+        
+        if (phone) {
+          existingUser = await db.query.user.findFirst({
+            where: (users, { eq }) => eq(users.phone, phone)
+          });
+          
+          if (existingUser) {
+            result.errors.push(`Row ${rowNum}: User with phone ${phone} already exists`);
+            continue;
+          }
         }
         
         // Parse date
@@ -183,7 +203,7 @@ export async function POST(req: NextRequest) {
         const newUser = {
           id: uuidv4(),
           name: name,
-          email: email,
+          email: email || null,
           phone: phone || null,
           notes: notes || null,
           userType: 'customer' as const,
