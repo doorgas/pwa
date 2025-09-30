@@ -30,11 +30,59 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const data = await req.json();
+    const { name, phone, email, notes } = await req.json();
+
+    // Validation: name is required
+    if (!name?.trim()) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+    
+    // Validation: either email or phone is required
+    if (!email?.trim() && !phone?.trim()) {
+      return NextResponse.json({ error: 'Either email or phone is required' }, { status: 400 });
+    }
+    
+    // Validate email format if provided
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+    }
+    
+    // Check for existing users by email or phone (excluding current user)
+    if (email) {
+      const existingUserByEmail = await db.query.user.findFirst({
+        where: (users, { eq, and, ne }) => and(
+          eq(users.email, email),
+          ne(users.id, id)
+        )
+      });
+      if (existingUserByEmail) {
+        return NextResponse.json({ error: 'User with this email already exists' }, { status: 400 });
+      }
+    }
+    
+    if (phone) {
+      const existingUserByPhone = await db.query.user.findFirst({
+        where: (users, { eq, and, ne }) => and(
+          eq(users.phone, phone),
+          ne(users.id, id)
+        )
+      });
+      if (existingUserByPhone) {
+        return NextResponse.json({ error: 'User with this phone number already exists' }, { status: 400 });
+      }
+    }
+
+    const updateData = {
+      name: name.trim(),
+      phone: phone?.trim() || null,
+      email: email?.trim() || null,
+      note: notes?.trim() || null,
+      updatedAt: new Date(),
+    };
 
     await db
       .update(user)
-      .set(data)
+      .set(updateData)
       .where(eq(user.id, id));
 
     const updatedUser = await db.query.user.findFirst({

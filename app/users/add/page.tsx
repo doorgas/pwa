@@ -6,23 +6,48 @@ export default function AddUser() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
+    phone: '',
     email: '',
-    password: '',
+    notes: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
   };
 
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      setError('Name is required');
+      return false;
+    }
+    
+    if (!formData.email.trim() && !formData.phone.trim()) {
+      setError('Either email or phone number is required');
+      return false;
+    }
+    
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const response = await fetch('/api/users', {
@@ -30,7 +55,12 @@ export default function AddUser() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          notes: formData.notes || null,
+        }),
       });
 
       if (!response.ok) {
@@ -59,7 +89,7 @@ export default function AddUser() {
       <form onSubmit={handleSubmit} className="max-w-lg">
         <div className="mb-4">
           <label className="block text-gray-700 mb-2" htmlFor="name">
-            Name
+            Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -67,14 +97,29 @@ export default function AddUser() {
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
+            className="w-full p-2 border rounded focus:outline-none focus:border-blue-500"
+            placeholder="Enter full name"
+          />
+        </div>
+        
+        <div className="mb-4">
+          <label className="block text-gray-700 mb-2" htmlFor="phone">
+            Phone <span className="text-sm text-gray-500">(required if no email)</span>
+          </label>
+          <input
+            type="tel"
+            id="phone"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            className="w-full p-2 border rounded focus:outline-none focus:border-blue-500"
+            placeholder="Enter phone number"
           />
         </div>
         
         <div className="mb-4">
           <label className="block text-gray-700 mb-2" htmlFor="email">
-            Email
+            Email <span className="text-sm text-gray-500">(required if no phone)</span>
           </label>
           <input
             type="email"
@@ -82,30 +127,36 @@ export default function AddUser() {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
+            className="w-full p-2 border rounded focus:outline-none focus:border-blue-500"
+            placeholder="Enter email address"
           />
         </div>
         
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2" htmlFor="password">
-            Password
+        <div className="mb-6">
+          <label className="block text-gray-700 mb-2" htmlFor="notes">
+            Notes <span className="text-sm text-gray-500">(optional)</span>
           </label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
+          <textarea
+            id="notes"
+            name="notes"
+            value={formData.notes}
             onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
+            rows={4}
+            className="w-full p-2 border rounded focus:outline-none focus:border-blue-500"
+            placeholder="Enter any additional notes about the user"
           />
+        </div>
+        
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <p className="text-sm text-blue-700">
+            <strong>Note:</strong> Either email or phone number must be provided. Users can login with either credential.
+          </p>
         </div>
         
         <div className="flex gap-4">
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             disabled={loading}
           >
             {loading ? 'Creating...' : 'Create User'}
@@ -121,4 +172,4 @@ export default function AddUser() {
       </form>
     </div>
   );
-} 
+}
