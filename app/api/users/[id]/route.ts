@@ -30,15 +30,23 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const { name, phone, email, notes } = await req.json();
+    const { name, phone, email, notes, status } = await req.json();
 
-    // Validation: name is required
-    if (!name?.trim()) {
+    // If status is provided, validate it
+    if (status !== undefined) {
+      const validStatuses = ['pending', 'approved', 'suspended'];
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json({ error: 'Invalid status. Must be pending, approved, or suspended' }, { status: 400 });
+      }
+    }
+
+    // Validation: if this is a general user update (not just status), name is required
+    if (name !== undefined && !name?.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
     
-    // Validation: either email or phone is required
-    if (!email?.trim() && !phone?.trim()) {
+    // Validation: if this is a general user update (not just status), either email or phone is required
+    if ((name !== undefined || email !== undefined || phone !== undefined) && !email?.trim() && !phone?.trim()) {
       return NextResponse.json({ error: 'Either email or phone is required' }, { status: 400 });
     }
     
@@ -72,13 +80,26 @@ export async function PUT(
       }
     }
 
-    const updateData = {
-      name: name.trim(),
-      phone: phone?.trim() || null,
-      email: email?.trim() || null,
-      note: notes?.trim() || null,
+    const updateData: any = {
       updatedAt: new Date(),
     };
+
+    // Only update fields that are provided
+    if (name !== undefined) {
+      updateData.name = name.trim();
+    }
+    if (phone !== undefined) {
+      updateData.phone = phone?.trim() || null;
+    }
+    if (email !== undefined) {
+      updateData.email = email?.trim() || null;
+    }
+    if (notes !== undefined) {
+      updateData.note = notes?.trim() || null;
+    }
+    if (status !== undefined) {
+      updateData.status = status;
+    }
 
     await db
       .update(user)
