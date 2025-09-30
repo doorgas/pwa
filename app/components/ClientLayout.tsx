@@ -127,7 +127,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Categories', href: '/categories', icon: FolderIcon, category: 'main' },
     /*{ name: 'Subcategories', href: '/subcategories', icon: FolderOpenIcon, category: 'catalog' },
     { name: 'Addons', href: '/addons', icon: PuzzleIcon, category: 'catalog' },*/
-    { name: 'Porudct Variations', href: '/variation-attributes', icon: TagIcon, category: 'main' },
+    { name: 'Product Variations', href: '/variation-attributes', icon: TagIcon, category: 'main' },
     /*{ name: 'Product Variants', href: '/product-variants', icon: WrenchIcon, category: 'main' },
     { name: 'Admin Users', href: '/admins', icon: ShieldIcon, category: 'admin' },
     { name: 'Admin Roles', href: '/roles', icon: LockIcon, category: 'admin' },
