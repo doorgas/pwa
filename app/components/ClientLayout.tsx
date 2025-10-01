@@ -128,11 +128,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     /*{ name: 'Subcategories', href: '/subcategories', icon: FolderOpenIcon, category: 'catalog' },
     { name: 'Addons', href: '/addons', icon: PuzzleIcon, category: 'catalog' },*/
     { name: 'Product Variations', href: '/variation-attributes', icon: TagIcon, category: 'main' },
-    /*{ name: 'Product Variants', href: '/product-variants', icon: WrenchIcon, category: 'main' },
+    /*{ name: 'Product Variants', href: '/product-variants', icon: WrenchIcon, category: 'main' },*/
     { name: 'Admin Users', href: '/admins', icon: ShieldIcon, category: 'admin' },
     { name: 'Admin Roles', href: '/roles', icon: LockIcon, category: 'admin' },
-    { name: 'Admin Logs', href: '/logs', icon: FileTextIcon, category: 'admin' },
-    { name: 'Settings', href: '/settings', icon: SettingsIcon, category: 'admin' },*/
+    /*{ name: 'Admin Logs', href: '/logs', icon: FileTextIcon, category: 'admin' },*/
     { name: 'Settings', href: '/settings', icon: SettingsIcon, category: 'admin' },
     { name: 'Logout', href: '/logout', icon: LogOutIcon, category: 'admin' },
   ];
