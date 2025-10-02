@@ -228,6 +228,7 @@ export async function POST(req: NextRequest) {
       postalCode,
       country,
       userType: 'driver', // Mark this user as a driver
+      status: 'approved', // Set status to approved for new drivers
       createdAt: new Date(),
       updatedAt: new Date(),
     });
