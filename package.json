@@ -34,7 +34,7 @@
     "@tiptap/pm": "^2.22.3",
     "@tiptap/react": "^2.22.3",
     "@tiptap/starter-kit": "^2.22.3",
-    "@vercel/blob": "^1.1.1",
+    "@vercel/blob": "^2.0.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "browser-image-compression": "^2.0.2",

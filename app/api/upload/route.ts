@@ -39,9 +39,10 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const fileName = `${directory}/${timestamp}-${file.name}`;
 
-    // Upload to Vercel Blob
+    // Upload to Vercel Blob with explicit token
     const blob = await put(fileName, file, {
       access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     return NextResponse.json({ 

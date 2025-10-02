@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
         hostname: '7wrvwal0c4f2v4r6.public.blob.vercel-storage.com',
         port: '',
         pathname: '/**',
+      },
+      // Additional hostname patterns for latest Vercel Blob
+      {
+        protocol: 'https',
+        hostname: 'blob.vercel-storage.com',
+        port: '',
+        pathname: '/**',
       }
     ],
     dangerouslyAllowSVG: true,
