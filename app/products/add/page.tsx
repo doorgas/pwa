@@ -5,7 +5,7 @@ import ImageUploader from '../../components/ImageUploader';
 import CurrencySymbol from '../../components/CurrencySymbol';
 import RichTextEditor from '../../components/RichTextEditor';
 import TagSelector from '../../components/TagSelector';
-import { generateSlug, isValidSlug, formatPrice } from '../../../utils/priceUtils';
+import { formatPrice } from '../../../utils/priceUtils';
 
 /**
  * Enhanced Variation System for E-commerce Products
@@ -144,7 +144,6 @@ export default function AddProduct() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
-    slug: '',
     description: '',
     shortDescription: '',
     sku: '',
@@ -196,7 +195,6 @@ export default function AddProduct() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
 
@@ -271,27 +269,6 @@ export default function AddProduct() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    
-    // Handle slug field separately to track manual edits
-    if (name === 'slug') {
-      setIsSlugManuallyEdited(true);
-      setFormData({
-        ...formData,
-        [name]: generateSlug(value) // Always generate valid slug even when manually edited
-      });
-      return;
-    }
-    
-    // Auto-generate slug from title if it hasn't been manually edited
-    if (name === 'name' && !isSlugManuallyEdited) {
-      setFormData({
-        ...formData,
-        [name]: value,
-        slug: generateSlug(value)
-      });
-      return;
-    }
-    
     setFormData({
       ...formData,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
@@ -854,44 +831,7 @@ export default function AddProduct() {
               />
             </div>
 
-            <div>
-              <label className="block text-gray-700 mb-2" htmlFor="slug">
-                Slug <span className="text-sm text-gray-500">(SEO-friendly URL)</span>
-              </label>
-              <input
-                type="text"
-                id="slug"
-                name="slug"
-                value={formData.slug}
-                onChange={handleChange}
-                className={`w-full p-2 border rounded focus:outline-none transition-colors ${
-                  formData.slug && !isValidSlug(formData.slug) 
-                    ? 'border-red-500 focus:border-red-500' 
-                    : 'border-gray-300 focus:border-blue-500'
-                }`}
-                placeholder="auto-generated-from-product-name"
-              />
-              {formData.slug && (
-                <div className="mt-1">
-                  {isValidSlug(formData.slug) ? (
-                    <p className="text-sm text-green-600 flex items-center">
-                      <span className="mr-1">✓</span>
-                      Preview URL: /products/{formData.slug}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-red-600 flex items-center">
-                      <span className="mr-1">✗</span>
-                      Invalid slug. Only lowercase letters, numbers, and hyphens allowed.
-                    </p>
-                  )}
-                </div>
-              )}
-              {!isSlugManuallyEdited && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Auto-generated from product name. You can edit it manually.
-                </p>
-              )}
-            </div>
+            
 
             <div>
               <label className="block text-gray-700 mb-2" htmlFor="description">

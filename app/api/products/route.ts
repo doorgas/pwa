@@ -4,6 +4,7 @@ import { products, categories, subcategories, productVariants, productAddons, pr
 import { v4 as uuidv4 } from 'uuid';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { generateSlug } from '@/utils/priceUtils';
 
 export async function GET() {
   try {
@@ -34,7 +35,6 @@ export async function POST(req: NextRequest) {
   try {
     const { 
       name, 
-      slug, 
       description, 
       shortDescription, 
       sku, 
@@ -96,10 +96,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Group products with zero price must have at least one addon' }, { status: 400 });
     }
     
+    // Generate slug from name (ensure SEO-friendly)
+    let finalSlug = generateSlug(name);
+    // Ensure slug uniqueness by appending a numeric suffix if needed
+    if (finalSlug) {
+      let suffix = 1;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const existing = await db.query.products.findFirst({
+          where: (p, { eq }) => eq(p.slug, finalSlug),
+        });
+        if (!existing) break;
+        suffix += 1;
+        finalSlug = `${generateSlug(name)}-${suffix}`;
+      }
+    }
+
     const newProduct = {
       id: uuidv4(),
       name,
-      slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+      slug: finalSlug,
       description: description || null,
       shortDescription: shortDescription || null,
       sku: sku || null,

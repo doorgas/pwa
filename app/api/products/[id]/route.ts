@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, productVariants, productAddons, productTags, tags } from '@/lib/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { nanoid } from 'nanoid';
+import { generateSlug } from '@/utils/priceUtils';
 
 export async function GET(
   req: NextRequest,
@@ -41,6 +42,24 @@ export async function PUT(
       selectedTags,
       ...productData 
     } = await req.json();
+
+    // If name is being updated, regenerate slug and ensure uniqueness
+    if (productData.name) {
+      let nextSlug = generateSlug(productData.name);
+      if (nextSlug) {
+        let suffix = 1;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const existing = await db.query.products.findFirst({
+            where: (p, { and, eq, ne }) => and(eq(p.slug, nextSlug), ne(p.id, id)),
+          });
+          if (!existing) break;
+          suffix += 1;
+          nextSlug = `${generateSlug(productData.name)}-${suffix}`;
+        }
+      }
+      productData.slug = nextSlug;
+    }
 
     // Handle empty SKU to avoid unique constraint violations
     if (productData.sku === '') {
