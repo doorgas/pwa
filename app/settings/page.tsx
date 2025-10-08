@@ -65,10 +65,10 @@ export default function SettingsPage() {
 
   // Order settings
   const [orderSettings, setOrderSettings] = useState({
-    minimum_order_value: 0,
-    delivery_fee: 0,
-    shipping_fee: 0,
-    driver_cut_flat: 0,
+    minimum_order_value: '',
+    delivery_fee: '',
+    shipping_fee: '',
+    driver_cut_flat: '',
   });
 
   useEffect(() => {
@@ -110,7 +110,12 @@ export default function SettingsPage() {
       }
 
       if (orderData.success) {
-        setOrderSettings(orderData.settings);
+        setOrderSettings({
+          minimum_order_value: orderData.settings.minimum_order_value !== undefined ? String(orderData.settings.minimum_order_value) : '',
+          delivery_fee: orderData.settings.delivery_fee !== undefined ? String(orderData.settings.delivery_fee) : '',
+          shipping_fee: orderData.settings.shipping_fee !== undefined ? String(orderData.settings.shipping_fee) : '',
+          driver_cut_flat: orderData.settings.driver_cut_flat !== undefined ? String(orderData.settings.driver_cut_flat) : '',
+        });
       }
     } catch (err) {
       console.error(err);
@@ -388,7 +393,7 @@ export default function SettingsPage() {
     }));
   };
 
-  const handleOrderSettingChange = (field: keyof typeof orderSettings, value: number) => {
+  const handleOrderSettingChange = (field: keyof typeof orderSettings, value: string) => {
     setOrderSettings(prev => ({
       ...prev,
       [field]: value
@@ -403,7 +408,12 @@ export default function SettingsPage() {
       const response = await fetch('/api/settings/order-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderSettings)
+        body: JSON.stringify({
+          minimum_order_value: orderSettings.minimum_order_value,
+          delivery_fee: orderSettings.delivery_fee,
+          shipping_fee: orderSettings.shipping_fee,
+          driver_cut_flat: orderSettings.driver_cut_flat,
+        })
       });
 
       if (!response.ok) {
@@ -870,7 +880,8 @@ export default function SettingsPage() {
                   min="0"
                   step="0.01"
                   value={orderSettings.minimum_order_value}
-                  onChange={(e) => handleOrderSettingChange('minimum_order_value', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleOrderSettingChange('minimum_order_value', e.target.value)}
+                  inputMode="decimal"
                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="0.00"
                 />
@@ -893,7 +904,8 @@ export default function SettingsPage() {
                   min="0"
                   step="0.01"
                   value={orderSettings.delivery_fee}
-                  onChange={(e) => handleOrderSettingChange('delivery_fee', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleOrderSettingChange('delivery_fee', e.target.value)}
+                  inputMode="decimal"
                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="0.00"
                 />
@@ -916,7 +928,8 @@ export default function SettingsPage() {
                   min="0"
                   step="0.01"
                   value={orderSettings.shipping_fee}
-                  onChange={(e) => handleOrderSettingChange('shipping_fee', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleOrderSettingChange('shipping_fee', e.target.value)}
+                  inputMode="decimal"
                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="0.00"
                 />
@@ -939,7 +952,8 @@ export default function SettingsPage() {
                   min="0"
                   step="0.01"
                   value={orderSettings.driver_cut_flat}
-                  onChange={(e) => handleOrderSettingChange('driver_cut_flat', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleOrderSettingChange('driver_cut_flat', e.target.value)}
+                  inputMode="decimal"
                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="0.00"
                 />

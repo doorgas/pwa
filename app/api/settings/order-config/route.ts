@@ -56,25 +56,31 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { minimum_order_value, delivery_fee, shipping_fee, driver_cut_flat } = body || {};
 
-    const validateNumber = (val: any, name: string) => {
-      if (val === undefined || val === null || isNaN(parseFloat(String(val)))) {
-        throw new Error(`${name} must be a valid number`);
-      }
-      if (parseFloat(String(val)) < 0) {
-        throw new Error(`${name} cannot be negative`);
-      }
+    const parseOrZero = (val: any): number => {
+      if (val === '' || val === undefined || val === null) return 0;
+      const num = parseFloat(String(val));
+      return isNaN(num) ? 0 : num;
     };
 
-    validateNumber(minimum_order_value, 'Minimum order value');
-    validateNumber(delivery_fee, 'Delivery fee');
-    validateNumber(shipping_fee, 'Shipping fee');
-    validateNumber(driver_cut_flat, 'Driver cut');
+    const minVal = parseOrZero(minimum_order_value);
+    const delFee = parseOrZero(delivery_fee);
+    const shipFee = parseOrZero(shipping_fee);
+    const driverCut = parseOrZero(driver_cut_flat);
+
+    const validateNonNegative = (num: number, name: string) => {
+      if (num < 0) throw new Error(`${name} cannot be negative`);
+    };
+
+    validateNonNegative(minVal, 'Minimum order value');
+    validateNonNegative(delFee, 'Delivery fee');
+    validateNonNegative(shipFee, 'Shipping fee');
+    validateNonNegative(driverCut, 'Driver cut');
 
     const updates = [
-      { key: MIN_ORDER_KEY, value: String(minimum_order_value), description: 'Minimum order value' },
-      { key: DELIVERY_FEE_KEY, value: String(delivery_fee), description: 'Delivery fee' },
-      { key: SHIPPING_FEE_KEY, value: String(shipping_fee), description: 'Shipping fee' },
-      { key: DRIVER_CUT_KEY, value: String(driver_cut_flat), description: 'Driver flat payment per order' },
+      { key: MIN_ORDER_KEY, value: String(minVal), description: 'Minimum order value' },
+      { key: DELIVERY_FEE_KEY, value: String(delFee), description: 'Delivery fee' },
+      { key: SHIPPING_FEE_KEY, value: String(shipFee), description: 'Shipping fee' },
+      { key: DRIVER_CUT_KEY, value: String(driverCut), description: 'Driver flat payment per order' },
     ];
 
     for (const u of updates) {
