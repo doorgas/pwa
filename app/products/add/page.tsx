@@ -287,52 +287,46 @@ export default function AddProduct() {
 
   // New gallery image upload handler
   const handleGalleryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Gallery image must be less than 5MB');
-      return;
-    }
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file');
-      return;
-    }
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploadingGallery(true);
     setError('');
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('directory', 'products');
+    const uploaded: { url: string; sortOrder: number }[] = [];
+    let nextOrder = images.length;
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload image');
+    for (const file of Array.from(files)) {
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('One or more images exceed 5MB');
+        continue;
       }
-
-      const data = await response.json();
-      console.log('Gallery image upload response:', data);
-      console.log('New image URL:', data.url);
-      const newImage = { url: data.url, sortOrder: images.length };
-      setImages([...images, newImage]);
-      
-      // Clear the input
-      e.target.value = '';
-    } catch (error) {
-      console.error('Upload error:', error);
-      setError('Failed to upload image. Please try again.');
-    } finally {
-      setUploadingGallery(false);
+      if (!file.type.startsWith('image/')) {
+        setError('One or more files are not valid images');
+        continue;
+      }
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('directory', 'products');
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!response.ok) throw new Error('Failed to upload image');
+        const data = await response.json();
+        uploaded.push({ url: data.url, sortOrder: nextOrder++ });
+      } catch (err) {
+        console.error('Upload error:', err);
+        setError('Some images failed to upload. Please try again.');
+      }
     }
+
+    if (uploaded.length > 0) {
+      setImages([...images, ...uploaded]);
+    }
+
+    // Clear the input
+    e.target.value = '';
+    setUploadingGallery(false);
   };
 
   // New banner image upload handler
@@ -1185,6 +1179,7 @@ export default function AddProduct() {
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleGalleryImageUpload}
                 className="hidden"
                 id="gallery-upload"
