@@ -142,6 +142,35 @@ export function normalizeProductImages(images: any): string[] {
 }
 
 /**
+ * Normalize product image objects with sortOrder and return sorted objects
+ * Accepts legacy (string[]) or new format ({url, sortOrder}[])
+ */
+export function normalizeProductImageObjects(images: any): { url: string; sortOrder: number }[] {
+  const parsed = deepParseJSON(images);
+
+  if (!Array.isArray(parsed)) return [];
+
+  const imageObjects = parsed
+    .map((img: any, index: number) => {
+      if (typeof img === 'string' && img.trim() !== '') {
+        return { url: img, sortOrder: index };
+      }
+      if (img && typeof img === 'object' && typeof img.url === 'string' && img.url.trim() !== '') {
+        return {
+          url: img.url,
+          sortOrder: typeof img.sortOrder === 'number' ? img.sortOrder : index,
+        };
+      }
+      return null;
+    })
+    .filter((item): item is { url: string; sortOrder: number } => item !== null)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Reindex to be sequential starting at 0
+  return imageObjects.map((img, i) => ({ url: img.url, sortOrder: i }));
+}
+
+/**
  * Normalize product tags array
  */
 export function normalizeProductTags(tags: any): string[] {
@@ -162,5 +191,6 @@ export default {
   normalizeVariationAttributes,
   normalizeVariantOptions,
   normalizeProductImages,
+  normalizeProductImageObjects,
   normalizeProductTags,
 }; 

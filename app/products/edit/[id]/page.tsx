@@ -11,7 +11,7 @@ import { formatPrice, calculatePriceRange } from '../../../../utils/priceUtils';
 import { 
   normalizeVariationAttributes, 
   normalizeVariantOptions, 
-  normalizeProductImages, 
+  normalizeProductImageObjects, 
   normalizeProductTags,
   deepParseJSON 
 } from '../../../../utils/jsonUtils';
@@ -128,7 +128,7 @@ export default function EditProduct() {
   // Tag selection state
   const [selectedTags, setSelectedTags] = useState<SelectedTag[]>([]);
   
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<{ url: string; sortOrder: number }[]>([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -172,7 +172,7 @@ export default function EditProduct() {
       const productTagsData = await productTagsRes.json();
       
       // Parse product data using deep parsing utilities
-      const productImages = normalizeProductImages(product.images);
+      const productImages = normalizeProductImageObjects(product.images);
       const productTags = normalizeProductTags(product.tags);
       const productVariationAttributes = normalizeVariationAttributes(product.variationAttributes);
       
@@ -324,7 +324,9 @@ export default function EditProduct() {
   };
 
   const handleImageRemove = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
+    const newImages = images.filter((_, i) => i !== index);
+    const reindexed = newImages.map((img, i) => ({ ...img, sortOrder: i }));
+    setImages(reindexed);
   };
 
   const handleBannerRemove = () => {
@@ -368,7 +370,8 @@ export default function EditProduct() {
       const data = await response.json();
       console.log('Gallery image upload response:', data);
       console.log('New image URL:', data.url);
-      setImages([...images, data.url]);
+      const newImage = { url: data.url, sortOrder: images.length };
+      setImages([...images, newImage]);
       
       // Clear the input
       e.target.value = '';
@@ -1111,15 +1114,46 @@ export default function EditProduct() {
 
           {/* Gallery Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-            {images.map((image, index) => (
-              <div key={index} className="group relative bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border-2 border-purple-100">
+            {images.map((imageObj, index) => (
+              <div 
+                key={`${imageObj.url}-${index}`} 
+                className="group relative bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border-2 border-purple-100 cursor-move"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', index.toString());
+                  (e.currentTarget as HTMLElement).style.opacity = '0.5';
+                }}
+                onDragEnd={(e) => {
+                  (e.currentTarget as HTMLElement).style.opacity = '1';
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLElement).style.borderColor = '#8b5cf6';
+                }}
+                onDragLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb';
+                  const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                  const dropIndex = index;
+                  if (!Number.isNaN(dragIndex) && dragIndex !== dropIndex) {
+                    const reordered = [...images];
+                    const [dragged] = reordered.splice(dragIndex, 1);
+                    reordered.splice(dropIndex, 0, dragged);
+                    const updated = reordered.map((img, i) => ({ ...img, sortOrder: i }));
+                    setImages(updated);
+                  }
+                }}
+              >
                 <div className="aspect-square overflow-hidden bg-gray-100 flex items-center justify-center">
                   <img 
-                    src={image} 
+                    src={imageObj.url} 
                     alt={`Gallery ${index + 1}`} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
                     onError={(e) => {
-                      console.error('Failed to load image:', image);
+                      console.error('Failed to load image:', imageObj.url);
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
                       const parent = target.parentElement;
@@ -1135,7 +1169,7 @@ export default function EditProduct() {
                       }
                     }}
                     onLoad={() => {
-                      console.log('Successfully loaded image:', image);
+                      console.log('Successfully loaded image:', imageObj.url);
                     }}
                   />
                 </div>
@@ -1153,7 +1187,7 @@ export default function EditProduct() {
                   </svg>
                 </button>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-transparent to-transparent p-2">
-                  <p className="text-white text-xs font-medium">Gallery Image</p>
+                  <p className="text-white text-xs font-medium">Order: {imageObj.sortOrder + 1}</p>
                 </div>
               </div>
             ))}
