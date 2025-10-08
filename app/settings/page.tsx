@@ -63,18 +63,27 @@ export default function SettingsPage() {
     store_description: ''
   });
 
+  // Order settings
+  const [orderSettings, setOrderSettings] = useState({
+    minimum_order_value: 0,
+    delivery_fee: 0,
+    shipping_fee: 0,
+    driver_cut_flat: 0,
+  });
+
   useEffect(() => {
     fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
     try {
-      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes] = await Promise.all([
+      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes] = await Promise.all([
         fetch('/api/settings/stock-management'),
         fetch('/api/settings/tax-settings'),
         fetch('/api/settings/loyalty'),
         fetch('/api/settings/appearance'),
-        fetch('/api/settings/store')
+        fetch('/api/settings/store'),
+        fetch('/api/settings/order-config')
       ]);
       
       const stockData = await stockRes.json();
@@ -82,6 +91,7 @@ export default function SettingsPage() {
       const loyaltyData = await loyaltyRes.json();
       const appearanceData = await appearanceRes.json();
       const storeData = await storeRes.json();
+      const orderData = await orderRes.json();
       
       setStockManagementEnabled(stockData.stockManagementEnabled);
       setVatTax(taxData.vatTax);
@@ -97,6 +107,10 @@ export default function SettingsPage() {
 
       if (storeData.success) {
         setStoreSettings(storeData.settings);
+      }
+
+      if (orderData.success) {
+        setOrderSettings(orderData.settings);
       }
     } catch (err) {
       console.error(err);
@@ -372,6 +386,38 @@ export default function SettingsPage() {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleOrderSettingChange = (field: keyof typeof orderSettings, value: number) => {
+    setOrderSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveOrderSettings = async () => {
+    try {
+      setSaving(true);
+      setError('');
+
+      const response = await fetch('/api/settings/order-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderSettings)
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update order settings');
+      }
+
+      setSuccess('Order settings updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveStoreSettings = async () => {
@@ -798,6 +844,120 @@ export default function SettingsPage() {
                 {saving ? 'Saving...' : 'Save Appearance Settings'}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Order Settings Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-800">Order & Delivery Settings</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Configure order minimums and fees applied during checkout
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Minimum Order Value
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">
+                  <CurrencySymbol />
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={orderSettings.minimum_order_value}
+                  onChange={(e) => handleOrderSettingChange('minimum_order_value', parseFloat(e.target.value) || 0)}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Orders below this amount may be blocked or incur additional fees
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Delivery Fee
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">
+                  <CurrencySymbol />
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={orderSettings.delivery_fee}
+                  onChange={(e) => handleOrderSettingChange('delivery_fee', parseFloat(e.target.value) || 0)}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Flat delivery fee added to delivery orders
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Shipping Fee
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">
+                  <CurrencySymbol />
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={orderSettings.shipping_fee}
+                  onChange={(e) => handleOrderSettingChange('shipping_fee', parseFloat(e.target.value) || 0)}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Flat shipping fee applied to shipped orders
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Driver Cut (Flat per Order)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">
+                  <CurrencySymbol />
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={orderSettings.driver_cut_flat}
+                  onChange={(e) => handleOrderSettingChange('driver_cut_flat', parseFloat(e.target.value) || 0)}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Flat payment amount per order paid to the driver
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <button
+              onClick={handleSaveOrderSettings}
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save Order Settings'}
+            </button>
           </div>
         </div>
 
