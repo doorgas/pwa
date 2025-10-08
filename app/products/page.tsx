@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { normalizeProductImages } from '../../utils/jsonUtils';
+import { normalizeProductImageObjects } from '../../utils/jsonUtils';
 import CurrencySymbol from '../../components/CurrencySymbol';
 import ResponsiveTable from '../components/ResponsiveTable';
 import { Button } from '@/components/ui/button';
@@ -90,8 +90,8 @@ export default function ProductsList() {
   };
 
   const getFirstProductImage = (imagesData: any): string | null => {
-    const normalizedImages = normalizeProductImages(imagesData);
-    return normalizedImages.length > 0 ? normalizedImages[0] : null;
+    const imageObjects = normalizeProductImageObjects(imagesData);
+    return imageObjects.length > 0 ? imageObjects[0].url : null;
   };
 
   const ProductImage = ({ imagesData, productName }: { imagesData: any; productName: string }) => {
