@@ -12,6 +12,7 @@ export default function ManageAttributeValues() {
   const [values, setValues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingValue, setEditingValue] = useState<any>(null);
   const [formData, setFormData] = useState({
     value: '',
     slug: '',
@@ -23,6 +24,7 @@ export default function ManageAttributeValues() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     fetchAttributeAndValues();
@@ -83,35 +85,40 @@ export default function ManageAttributeValues() {
     try {
       const submitData = {
         ...formData,
-        attributeId,
         sortOrder: parseInt(formData.sortOrder.toString()),
       };
 
-      const response = await fetch('/api/variation-attribute-values', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
+      let response;
+      if (editingValue) {
+        // Update existing value
+        response = await fetch(`/api/variation-attribute-values/${editingValue.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submitData),
+        });
+      } else {
+        // Create new value
+        response = await fetch('/api/variation-attribute-values', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ...submitData, attributeId }),
+        });
+      }
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to create attribute value');
+        throw new Error(data.error || `Failed to ${editingValue ? 'update' : 'create'} attribute value`);
       }
 
       // Reset form and refresh data
-      setFormData({
-        value: '',
-        slug: '',
-        colorCode: '',
-        image: '',
-        description: '',
-        sortOrder: 0,
-        isActive: true,
-      });
-      setShowAddForm(false);
+      resetForm();
       fetchAttributeAndValues();
+      setSuccess(`Value ${editingValue ? 'updated' : 'created'} successfully!`);
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -119,13 +126,50 @@ export default function ManageAttributeValues() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      value: '',
+      slug: '',
+      colorCode: '',
+      image: '',
+      description: '',
+      sortOrder: 0,
+      isActive: true,
+    });
+    setShowAddForm(false);
+    setEditingValue(null);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleEdit = (valueItem: any) => {
+    const value = valueItem.value;
+    setFormData({
+      value: value.value || '',
+      slug: value.slug || '',
+      colorCode: value.colorCode || '',
+      image: value.image || '',
+      description: value.description || '',
+      sortOrder: value.sortOrder || 0,
+      isActive: value.isActive !== undefined ? value.isActive : true,
+    });
+    setEditingValue(value);
+    setShowAddForm(true);
+    setError('');
+    setSuccess('');
+  };
+
   const handleDelete = async (valueId: string) => {
     if (confirm('Are you sure you want to delete this attribute value?')) {
       try {
         await fetch(`/api/variation-attribute-values/${valueId}`, { method: 'DELETE' });
         setValues(values.filter((val: any) => val.value.id !== valueId));
+        setSuccess('Value deleted successfully!');
+        setTimeout(() => setSuccess(''), 3000);
       } catch (error) {
         console.error('Error deleting attribute value:', error);
+        setError('Failed to delete attribute value');
+        setTimeout(() => setError(''), 3000);
       }
     }
   };
@@ -152,6 +196,12 @@ export default function ManageAttributeValues() {
         </div>
       )}
 
+      {success && (
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+          {success}
+        </div>
+      )}
+
       {/* Attribute Info */}
       <div className="bg-white border rounded-lg p-4 mb-6">
         <div className="flex items-center justify-between">
@@ -162,19 +212,31 @@ export default function ManageAttributeValues() {
               <p className="text-gray-600 mt-1">{attribute.description}</p>
             )}
           </div>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-          >
-            {showAddForm ? 'Cancel' : '+ Add Value'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                if (showAddForm && !editingValue) {
+                  setShowAddForm(false);
+                } else if (showAddForm && editingValue) {
+                  resetForm();
+                } else {
+                  setShowAddForm(true);
+                }
+              }}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+            >
+              {showAddForm ? 'Cancel' : '+ Add Value'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Add Value Form */}
+      {/* Add/Edit Value Form */}
       {showAddForm && (
         <div className="bg-white border rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4">Add New Value</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            {editingValue ? 'Edit Value' : 'Add New Value'}
+          </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -298,11 +360,14 @@ export default function ManageAttributeValues() {
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
                 disabled={submitting}
               >
-                {submitting ? 'Adding...' : 'Add Value'}
+                {submitting 
+                  ? (editingValue ? 'Updating...' : 'Adding...') 
+                  : (editingValue ? 'Update Value' : 'Add Value')
+                }
               </button>
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={resetForm}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
               >
                 Cancel
@@ -374,12 +439,20 @@ export default function ManageAttributeValues() {
                       </span>
                     </td>
                     <td className="p-3">
-                      <button
-                        onClick={() => handleDelete(item.value.id)}
-                        className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.value.id)}
+                          className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

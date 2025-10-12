@@ -71,19 +71,26 @@ export default function SettingsPage() {
     driver_cut_flat: '',
   });
 
+  // Shipping settings
+  const [shippingSettings, setShippingSettings] = useState({
+    enabled: true,
+    customMessage: 'Shipping is currently available for all orders.'
+  });
+
   useEffect(() => {
     fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
     try {
-      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes] = await Promise.all([
+      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes, shippingRes] = await Promise.all([
         fetch('/api/settings/stock-management'),
         fetch('/api/settings/tax-settings'),
         fetch('/api/settings/loyalty'),
         fetch('/api/settings/appearance'),
         fetch('/api/settings/store'),
-        fetch('/api/settings/order-config')
+        fetch('/api/settings/order-config'),
+        fetch('/api/settings/shipping')
       ]);
       
       const stockData = await stockRes.json();
@@ -92,6 +99,7 @@ export default function SettingsPage() {
       const appearanceData = await appearanceRes.json();
       const storeData = await storeRes.json();
       const orderData = await orderRes.json();
+      const shippingData = await shippingRes.json();
       
       setStockManagementEnabled(stockData.stockManagementEnabled);
       setVatTax(taxData.vatTax);
@@ -115,6 +123,14 @@ export default function SettingsPage() {
           delivery_fee: orderData.settings.delivery_fee !== undefined ? String(orderData.settings.delivery_fee) : '',
           shipping_fee: orderData.settings.shipping_fee !== undefined ? String(orderData.settings.shipping_fee) : '',
           driver_cut_flat: orderData.settings.driver_cut_flat !== undefined ? String(orderData.settings.driver_cut_flat) : '',
+        });
+      }
+
+      // Set shipping settings
+      if (shippingData.enabled !== undefined && shippingData.customMessage !== undefined) {
+        setShippingSettings({
+          enabled: shippingData.enabled,
+          customMessage: shippingData.customMessage
         });
       }
     } catch (err) {
@@ -452,6 +468,71 @@ export default function SettingsPage() {
       }
 
       setSuccess('Store settings updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleShippingToggle = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      
+      const newEnabled = !shippingSettings.enabled;
+      
+      const response = await fetch('/api/settings/shipping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          enabled: newEnabled, 
+          customMessage: shippingSettings.customMessage 
+        })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update shipping settings');
+      }
+      
+      setShippingSettings(prev => ({ ...prev, enabled: newEnabled }));
+      setSuccess(`Shipping ${newEnabled ? 'enabled' : 'disabled'} successfully`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleShippingMessageChange = (message: string) => {
+    setShippingSettings(prev => ({ ...prev, customMessage: message }));
+  };
+
+  const handleSaveShippingSettings = async () => {
+    try {
+      setSaving(true);
+      setError('');
+
+      // Validate message length
+      if (shippingSettings.customMessage.length > 1000) {
+        throw new Error('Custom message cannot exceed 1000 characters');
+      }
+
+      const response = await fetch('/api/settings/shipping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shippingSettings)
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update shipping settings');
+      }
+
+      setSuccess('Shipping settings updated successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message);
@@ -972,6 +1053,145 @@ export default function SettingsPage() {
             >
               {saving ? 'Saving...' : 'Save Order Settings'}
             </button>
+          </div>
+        </div>
+
+        {/* Shipping Settings Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-800">Shipping Settings</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Control shipping availability and display custom messages to customers
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {/* Shipping Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-700">Enable Shipping</h3>
+                <p className="text-sm text-gray-500">
+                  When disabled, customers won't be able to proceed with checkout
+                </p>
+              </div>
+              <button
+                onClick={handleShippingToggle}
+                disabled={saving}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  shippingSettings.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    shippingSettings.enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Status Indicator */}
+            <div className={`p-4 rounded-lg border-2 ${
+              shippingSettings.enabled 
+                ? 'border-green-200 bg-green-50' 
+                : 'border-red-200 bg-red-50'
+            }`}>
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-3 ${
+                  shippingSettings.enabled ? 'bg-green-500' : 'bg-red-500'
+                }`}></div>
+                <span className={`font-medium ${
+                  shippingSettings.enabled ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  Shipping is currently {shippingSettings.enabled ? 'ENABLED' : 'DISABLED'}
+                </span>
+              </div>
+              <p className={`text-sm mt-2 ${
+                shippingSettings.enabled ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {shippingSettings.enabled 
+                  ? 'Customers can proceed with checkout and place orders'
+                  : 'Customers will see a message and cannot complete checkout'
+                }
+              </p>
+            </div>
+
+            {/* Custom Message */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Custom Message
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                This message will be displayed to customers on the frontend. 
+                {!shippingSettings.enabled && ' It will be shown when shipping is disabled.'}
+              </p>
+              <textarea
+                value={shippingSettings.customMessage}
+                onChange={(e) => handleShippingMessageChange(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical"
+                placeholder="Enter a custom message for customers..."
+                rows={3}
+                maxLength={1000}
+              />
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-xs text-gray-400">
+                  {shippingSettings.customMessage.length}/1000 characters
+                </span>
+                {shippingSettings.customMessage.length > 800 && (
+                  <span className="text-xs text-orange-600">
+                    Approaching character limit
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="border-t pt-4">
+              <h4 className="text-md font-medium text-gray-700 mb-3">Preview</h4>
+              <div className={`p-4 rounded-lg border-2 ${
+                shippingSettings.enabled 
+                  ? 'border-blue-200 bg-blue-50' 
+                  : 'border-orange-200 bg-orange-50'
+              }`}>
+                <div className="flex items-start">
+                  <div className={`w-5 h-5 rounded-full mr-3 mt-0.5 flex items-center justify-center ${
+                    shippingSettings.enabled ? 'bg-blue-500' : 'bg-orange-500'
+                  }`}>
+                    {shippingSettings.enabled ? (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${
+                      shippingSettings.enabled ? 'text-blue-800' : 'text-orange-800'
+                    }`}>
+                      {shippingSettings.enabled ? 'Shipping Available' : 'Shipping Notice'}
+                    </p>
+                    <p className={`text-sm mt-1 ${
+                      shippingSettings.enabled ? 'text-blue-700' : 'text-orange-700'
+                    }`}>
+                      {shippingSettings.customMessage || 'No custom message set'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleSaveShippingSettings}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Shipping Settings'}
+              </button>
+            </div>
           </div>
         </div>
 
