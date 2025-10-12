@@ -94,7 +94,8 @@ export default function UsersList() {
     const userName = user?.name || user?.email || 'this user';
     
     const action = newStatus === 'approved' ? 'approve' : 'set as pending';
-    const confirmMessage = `Are you sure you want to ${action} ${userName}?`;
+    const emailNote = user?.email ? ' An email notification will be sent.' : ' (No email on file)';
+    const confirmMessage = `Are you sure you want to ${action} ${userName}?${emailNote}`;
     
     if (!confirm(confirmMessage)) {
       return;
@@ -113,6 +114,15 @@ export default function UsersList() {
         setUsers(users.map(user => 
           user.id === id ? { ...user, status: newStatus } : user
         ));
+        
+        // Show success message with email info
+        if (user?.email && newStatus === 'approved') {
+          alert(`User ${action}d successfully! Approval email sent to ${user.email}`);
+        } else if (user?.email) {
+          alert(`User status updated successfully! Notification email sent to ${user.email}`);
+        } else {
+          alert(`User status updated successfully!`);
+        }
       } else {
         console.error('Failed to update user status');
         alert('Failed to update user status');

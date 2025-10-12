@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { user } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
+import { sendApprovalEmail, sendRejectionEmail } from '@/lib/email';
 
 export async function GET(
   req: NextRequest,
@@ -101,6 +102,15 @@ export async function PUT(
       updateData.status = status;
     }
 
+    // Get the current user data before updating to check for status changes
+    const currentUser = await db.query.user.findFirst({
+      where: eq(user.id, id),
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     await db
       .update(user)
       .set(updateData)
@@ -112,6 +122,23 @@ export async function PUT(
 
     if (!updatedUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Send email if status changed and user has an email
+    if (status !== undefined && status !== currentUser.status && updatedUser.email) {
+      try {
+        if (status === 'approved') {
+          await sendApprovalEmail(updatedUser.email, updatedUser.name || undefined);
+          console.log(`Approval email sent to ${updatedUser.email}`);
+        } else if (status === 'pending' && currentUser.status === 'approved') {
+          await sendRejectionEmail(updatedUser.email, updatedUser.name || undefined);
+          console.log(`Status change email sent to ${updatedUser.email}`);
+        }
+      } catch (emailError) {
+        console.error('Failed to send email:', emailError);
+        // Don't fail the entire request if email fails
+        // The user status update was successful, email is just a bonus
+      }
     }
 
     return NextResponse.json(updatedUser);
