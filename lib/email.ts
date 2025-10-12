@@ -29,15 +29,12 @@ export async function sendApprovalEmail(to: string, name?: string) {
 
 Great news! Your account has been approved and you now have full access to our platform.
 
-You can now:
-- Browse and purchase products
-- Access all platform features
-- Enjoy our full range of services
+You can now browse and purchase products.
 
 Thank you for joining us!
 
 Best regards,
-The Admin Team`;
+The Admin Team at Doorgas`;
 
   return await sendTextEmail(to, subject, text);
 }
@@ -52,7 +49,7 @@ We wanted to update you on your account status. Your account is currently pendin
 If you have any questions or concerns, please don't hesitate to contact our support team.
 
 Best regards,
-The Admin Team`;
+The Admin Team at Doorgas`;
 
   return await sendTextEmail(to, subject, text);
 }
