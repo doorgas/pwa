@@ -35,7 +35,6 @@ export async function PUT(
     const { id } = await params;
     const { 
       variants, 
-      variationAttributes, 
       variantsToDelete,
       variantChanges,
       addons,
@@ -80,24 +79,13 @@ export async function PUT(
     if (productData.images) productData.images = JSON.stringify(productData.images);
     if (productData.tags) productData.tags = JSON.stringify(productData.tags);
     if (productData.dimensions) productData.dimensions = JSON.stringify(productData.dimensions);
-    if (variationAttributes) productData.variationAttributes = JSON.stringify(variationAttributes);
+    // Note: Variant deletion is now handled by separate API endpoint
+    // /api/products/[id]/variants/[variantId] for immediate deletion
 
-    // Update the main product
-    await db
-      .update(products)
-      .set(productData)
-      .where(eq(products.id, id));
+    // Note: variationAttributes column not used - variants are the source of truth
 
     // Handle variant management for variable products
     if (productData.productType === 'variable' && variants) {
-      // Delete variants marked for deletion
-      if (variantsToDelete && variantsToDelete.length > 0) {
-        for (const variantId of variantsToDelete) {
-          await db
-            .delete(productVariants)
-            .where(eq(productVariants.id, variantId));
-        }
-      }
 
       // Process variants (update existing, create new)
       for (const variant of variants) {
@@ -245,6 +233,12 @@ export async function PUT(
         }
       }
     }
+
+    // Update the main product (after all variant operations)
+    await db
+      .update(products)
+      .set(productData)
+      .where(eq(products.id, id));
 
     const updatedProduct = await db.query.products.findFirst({
       where: eq(products.id, id),

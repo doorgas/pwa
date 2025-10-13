@@ -16,7 +16,17 @@ const VariantManager: React.FC<VariantManagerProps> = ({
   onVariantDelete,
   isEditing = true,
 }) => {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  // Initialize expanded sections with all groups expanded by default
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const groupedVariants = variants.reduce((groups, variant) => {
+      const firstAttr = Object.keys(variant.attributes)[0];
+      const firstValue = variant.attributes[firstAttr];
+      const groupKey = firstAttr ? `${firstAttr}: ${firstValue}` : 'Default';
+      groups.add(groupKey);
+      return groups;
+    }, new Set<string>());
+    return groupedVariants;
+  });
   const [bulkEdit, setBulkEdit] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Set<string>>(new Set());
 

@@ -118,7 +118,6 @@ export default function EditProduct() {
   // Variable product specific states
   const [availableAttributes, setAvailableAttributes] = useState<DatabaseVariationAttribute[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<VariationAttribute[]>([]);
-  const [variantsToDelete, setVariantsToDelete] = useState<string[]>([]);
   const [variantChanges, setVariantChanges] = useState<Record<string, Record<string, any>>>({});
   
   // Group product specific states
@@ -436,8 +435,224 @@ export default function EditProduct() {
     console.log(`Variant ${variantId} field '${field}' changed to:`, value, '(stored locally, will be saved on form submit)');
   };
 
-  const handleVariantDelete = (variantId: string) => {
-    setVariantsToDelete([...variantsToDelete, variantId]);
+  const handleVariantDelete = async (variantId: string) => {
+    // Add debugging to confirm the variant ID
+    console.log('🗑️ Deleting variant with ID:', variantId);
+    
+    // Find the variant details for logging
+    const variantToDelete = variantData?.variants.find(v => v.id === variantId);
+    if (variantToDelete) {
+      console.log('🗑️ Variant details:', {
+        id: variantToDelete.id,
+        title: variantToDelete.title,
+        attributes: variantToDelete.attributes
+      });
+    } else {
+      console.warn('⚠️ Variant not found in current data:', variantId);
+    }
+    
+    // Immediately delete from database via API call
+    try {
+      const response = await fetch(`/api/products/${productId}/variants/${variantId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete variant');
+      }
+
+      console.log('✅ Variant deleted successfully from database');
+      
+      // Refresh variant data to sync with database (this will update the UI)
+      await refetchVariants();
+      
+      // Also refresh product data to update variation attributes
+      await fetchProductAndInitialData();
+      
+    } catch (error) {
+      console.error('❌ Error deleting variant:', error);
+      setError(`Failed to delete variant: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Function to get unused variation attributes and new values
+  const getNewVariationData = () => {
+    const usedAttributeNames = selectedAttributes.map(attr => attr.name);
+    
+    // 1. Find completely new attributes (not used at all)
+    const newAttributes = availableAttributes.filter(attr => !usedAttributeNames.includes(attr.name));
+    
+    // 2. Find existing attributes with new values
+    const attributesWithNewValues: VariationAttribute[] = [];
+    
+    selectedAttributes.forEach(selectedAttr => {
+      const dbAttribute = availableAttributes.find(attr => attr.name === selectedAttr.name);
+      if (dbAttribute) {
+        // Get currently used value IDs for this attribute
+        const usedValueIds = selectedAttr.values.map(v => v.id);
+        
+        // Find values in the database that aren't currently used
+        const newValues = dbAttribute.values.filter(dbValue => !usedValueIds.includes(dbValue.id));
+        
+        if (newValues.length > 0) {
+          // Create an attribute object with only the new values
+          attributesWithNewValues.push({
+            id: dbAttribute.id,
+            name: dbAttribute.name,
+            type: dbAttribute.type,
+            slug: dbAttribute.slug,
+            values: newValues
+          });
+        }
+      }
+    });
+    
+    return {
+      newAttributes,
+      attributesWithNewValues,
+      hasNewData: newAttributes.length > 0 || attributesWithNewValues.length > 0
+    };
+  };
+
+  // Function to get unused variation attributes (backward compatibility)
+  const getUnusedVariationAttributes = () => {
+    const { newAttributes, attributesWithNewValues } = getNewVariationData();
+    return [...newAttributes, ...attributesWithNewValues];
+  };
+
+  // Function to generate all possible variant combinations from attributes
+  const generateVariantCombinations = (attributes: VariationAttribute[]) => {
+    if (attributes.length === 0) return [];
+    
+    const combinations: Array<Record<string, string>> = [];
+    
+    const generateCombos = (index: number, currentCombo: Record<string, string>) => {
+      if (index === attributes.length) {
+        combinations.push({ ...currentCombo });
+        return;
+      }
+      
+      const attribute = attributes[index];
+      for (const value of attribute.values) {
+        currentCombo[attribute.name] = value.value;
+        generateCombos(index + 1, currentCombo);
+      }
+    };
+    
+    generateCombos(0, {});
+    return combinations;
+  };
+
+  // Function to import new variations from unused attributes
+  const handleImportNewVariations = async () => {
+    const { newAttributes, attributesWithNewValues, hasNewData } = getNewVariationData();
+    
+    if (!hasNewData) {
+      setError('No new variation attributes or values available to import. All available options are already being used.');
+      return;
+    }
+
+    try {
+      // Create updated attributes list
+      const allAttributes: VariationAttribute[] = [...selectedAttributes];
+      
+      // 1. Add completely new attributes
+      newAttributes.forEach(attr => {
+        allAttributes.push({
+          id: attr.id,
+          name: attr.name,
+          type: attr.type,
+          slug: attr.slug,
+          values: attr.values
+        });
+      });
+      
+      // 2. Update existing attributes with new values
+      attributesWithNewValues.forEach(attrWithNewValues => {
+        const existingAttrIndex = allAttributes.findIndex(attr => attr.name === attrWithNewValues.name);
+        if (existingAttrIndex !== -1) {
+          // Merge new values with existing values
+          allAttributes[existingAttrIndex] = {
+            ...allAttributes[existingAttrIndex],
+            values: [...allAttributes[existingAttrIndex].values, ...attrWithNewValues.values]
+          };
+        }
+      });
+      
+      // Generate all possible variant combinations from all attributes
+      const allCombinations = generateVariantCombinations(allAttributes);
+      
+      // Get existing variant combinations to avoid duplicates
+      const existingCombinations = variantData?.variants.map(variant => variant.attributes) || [];
+      
+      // Find only the new combinations that don't already exist
+      const newCombinations = allCombinations.filter(newCombo => {
+        return !existingCombinations.some(existing => {
+          return Object.keys(newCombo).every(key => 
+            existing[key] === newCombo[key]
+          );
+        });
+      });
+
+      if (newCombinations.length === 0) {
+        setError('No new variant combinations to create. All possible combinations already exist.');
+        return;
+      }
+
+      // Create new variant objects for the new combinations
+      const newVariants = newCombinations.map(combo => {
+        const title = Object.entries(combo).map(([key, value]) => `${key}: ${value}`).join(', ');
+        return {
+          title,
+          attributes: combo,
+          price: parseFloat(formData.price || '0'),
+          comparePrice: null,
+          costPrice: null,
+          sku: '',
+          inventoryQuantity: 0,
+          isActive: true,
+          outOfStock: false
+        };
+      });
+
+      // Update selected attributes and save to database
+      setSelectedAttributes(allAttributes);
+      
+      // Use the existing product update API to save the new attributes and variants
+      const response = await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productType: 'variable',
+          variationAttributes: allAttributes,
+          variants: [...(variantData?.variants || []), ...newVariants]
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to generate new variants');
+      }
+
+      // Refresh variant data to show the new variants
+      await refetchVariants();
+      
+      setError(''); // Clear any previous errors
+      // Show success message
+      const totalNewAttrs = newAttributes.length;
+      const totalNewValues = attributesWithNewValues.reduce((sum, attr) => sum + attr.values.length, 0);
+      console.log(`Successfully imported ${totalNewAttrs} new attributes and ${totalNewValues} new values, generating ${newVariants.length} new variants`);
+      
+    } catch (err: any) {
+      console.error('Error importing variations:', err);
+      setError(err.message || 'Failed to import new variations');
+    }
   };
 
   // Addon management functions
@@ -539,8 +754,7 @@ export default function EditProduct() {
         yieldAmount: formData.yieldAmount || null,
         images: images.length > 0 ? images : null,
         selectedTags: selectedTags.length > 0 ? selectedTags : null,
-        variationAttributes: formData.productType === 'variable' ? selectedAttributes : null,
-        variantsToDelete: variantsToDelete.length > 0 ? variantsToDelete : null,
+        // Note: variationAttributes not sent - variants are the source of truth
         variantChanges: Object.keys(variantChanges).length > 0 ? variantChanges : null,
         addons: selectedAddons.length > 0 ? selectedAddons : null,
       };
@@ -561,7 +775,12 @@ export default function EditProduct() {
       // Clear local changes after successful submission
       setVariantChanges({});
       
-      router.push('/products');
+      // Refresh variant data and reload product data to get updated variation attributes
+      await refetchVariants();
+      await fetchProductAndInitialData();
+      
+      // Optionally navigate back to products list
+      // router.push('/products');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -1321,16 +1540,71 @@ export default function EditProduct() {
           <div className="mt-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">🔧 Product Variants</h3>
-              {Object.keys(variantChanges).length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-lg">
-                  <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <div className="flex items-center gap-3">
+                {/* Import New Variations Button */}
+                <button
+                  type="button"
+                  onClick={handleImportNewVariations}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={submitting || !getNewVariationData().hasNewData}
+                  title={!getNewVariationData().hasNewData ? 'No new variation attributes or values available' : `Import new variation data`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  <span className="text-sm text-yellow-800 font-medium">
-                    {Object.keys(variantChanges).length} variant{Object.keys(variantChanges).length > 1 ? 's' : ''} modified
-                  </span>
+                  <span>Import New Variations</span>
+                  {getNewVariationData().hasNewData && (
+                    <span className="bg-green-600 text-green-100 px-2 py-1 rounded-full text-xs">
+                      NEW
+                    </span>
+                  )}
+                </button>
+                
+                {Object.keys(variantChanges).length > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-lg">
+                    <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span className="text-sm text-yellow-800 font-medium">
+                      {Object.keys(variantChanges).length} variant{Object.keys(variantChanges).length > 1 ? 's' : ''} modified
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Show available attributes info */}
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="space-y-2 text-sm">
+                <div className="text-blue-700">
+                  <strong>Current Attributes:</strong> {selectedAttributes.length > 0 ? selectedAttributes.map(attr => `${attr.name} (${attr.values.length} values)`).join(', ') : 'None'}
                 </div>
-              )}
+                
+                {(() => {
+                  const { newAttributes, attributesWithNewValues } = getNewVariationData();
+                  return (
+                    <>
+                      {newAttributes.length > 0 && (
+                        <div className="text-green-700">
+                          <strong>New Attributes:</strong> {newAttributes.map(attr => `${attr.name} (${attr.values.length} values)`).join(', ')}
+                        </div>
+                      )}
+                      
+                      {attributesWithNewValues.length > 0 && (
+                        <div className="text-orange-700">
+                          <strong>New Values in Existing Attributes:</strong> {attributesWithNewValues.map(attr => `${attr.name} (+${attr.values.length} values)`).join(', ')}
+                        </div>
+                      )}
+                      
+                      {newAttributes.length === 0 && attributesWithNewValues.length === 0 && (
+                        <div className="text-gray-600">
+                          <strong>Available to Import:</strong> None - all variation options are already being used
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
             <p className="text-gray-600 mb-4">
               Manage individual variant pricing and settings. Changes are saved when you submit the form.

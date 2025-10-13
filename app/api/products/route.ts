@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
       metaTitle, 
       metaDescription,
       productType,
-      variationAttributes,
       variants,
       addons,
       // Weight-based stock management fields
@@ -138,7 +137,7 @@ export async function POST(req: NextRequest) {
       metaTitle: metaTitle || null,
       metaDescription: metaDescription || null,
       productType: productType || 'simple',
-      variationAttributes: variationAttributes ? JSON.stringify(variationAttributes) : null,
+      // Note: variationAttributes column not used - variants are the source of truth
       // Weight-based stock management fields
       stockManagementType: stockManagementType || 'quantity',
       pricePerUnit: pricePerUnit ? pricePerUnit.toString() : null,

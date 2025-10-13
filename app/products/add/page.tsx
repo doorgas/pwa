@@ -576,8 +576,7 @@ export default function AddProduct() {
         selectedTags: selectedTags.length > 0 ? selectedTags : null,
         // Enhanced variation data structure
         variationMatrix: formData.productType === 'variable' ? generateVariationMatrix() : null,
-        // Keep legacy format for backwards compatibility
-        variationAttributes: formData.productType === 'variable' ? selectedAttributes : null,
+        // Note: variationAttributes column not used - variants are the source of truth
         variants: formData.productType === 'variable' ? generatedVariants : null,
         addons: selectedAddons.length > 0 ? selectedAddons : null,
       };

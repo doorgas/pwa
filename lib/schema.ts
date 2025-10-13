@@ -171,6 +171,7 @@ export const products = mysqlTable("products", {
 export const productVariants = mysqlTable("product_variants", {
   id: varchar("id", { length: 255 }).primaryKey(),
   productId: varchar("product_id", { length: 255 }).notNull(),
+  variationAttributeValuesId: varchar("variation_attribute_values_id", { length: 255 }), // Reference to variation_attribute_values
   sku: varchar("sku", { length: 100 }).unique(),
   title: varchar("title", { length: 255 }).notNull(), // e.g., "Red / Large"
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
