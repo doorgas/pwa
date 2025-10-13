@@ -5,13 +5,11 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 const MIN_ORDER_KEY = 'order_minimum_order_value';
-const DELIVERY_FEE_KEY = 'order_delivery_fee';
-const SHIPPING_FEE_KEY = 'order_shipping_fee';
 const DRIVER_CUT_KEY = 'order_driver_cut_flat';
 
 export async function GET() {
   try {
-    const keys = [MIN_ORDER_KEY, DELIVERY_FEE_KEY, SHIPPING_FEE_KEY, DRIVER_CUT_KEY];
+    const keys = [MIN_ORDER_KEY, DRIVER_CUT_KEY];
     const results = await Promise.all(keys.map(async (key) => {
       const rows = await db.select().from(settings).where(eq(settings.key, key));
       return rows[0] || null;
@@ -19,17 +17,13 @@ export async function GET() {
 
     const current = {
       minimum_order_value: results[0]?.value ? parseFloat(String(results[0].value)) : 0,
-      delivery_fee: results[1]?.value ? parseFloat(String(results[1].value)) : 0,
-      shipping_fee: results[2]?.value ? parseFloat(String(results[2].value)) : 0,
-      driver_cut_flat: results[3]?.value ? parseFloat(String(results[3].value)) : 0,
+      driver_cut_flat: results[1]?.value ? parseFloat(String(results[1].value)) : 0,
     };
 
     // Create defaults if missing
     const toCreate: Array<{ key: string; value: string; description: string }> = [];
     if (!results[0]) toCreate.push({ key: MIN_ORDER_KEY, value: '0', description: 'Minimum order value' });
-    if (!results[1]) toCreate.push({ key: DELIVERY_FEE_KEY, value: '0', description: 'Delivery fee' });
-    if (!results[2]) toCreate.push({ key: SHIPPING_FEE_KEY, value: '0', description: 'Shipping fee' });
-    if (!results[3]) toCreate.push({ key: DRIVER_CUT_KEY, value: '0', description: 'Driver flat payment per order' });
+    if (!results[1]) toCreate.push({ key: DRIVER_CUT_KEY, value: '0', description: 'Driver flat payment per order' });
 
     if (toCreate.length > 0) {
       for (const s of toCreate) {
@@ -54,7 +48,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { minimum_order_value, delivery_fee, shipping_fee, driver_cut_flat } = body || {};
+    const { minimum_order_value, driver_cut_flat } = body || {};
 
     const parseOrZero = (val: any): number => {
       if (val === '' || val === undefined || val === null) return 0;
@@ -63,8 +57,6 @@ export async function POST(req: NextRequest) {
     };
 
     const minVal = parseOrZero(minimum_order_value);
-    const delFee = parseOrZero(delivery_fee);
-    const shipFee = parseOrZero(shipping_fee);
     const driverCut = parseOrZero(driver_cut_flat);
 
     const validateNonNegative = (num: number, name: string) => {
@@ -72,14 +64,10 @@ export async function POST(req: NextRequest) {
     };
 
     validateNonNegative(minVal, 'Minimum order value');
-    validateNonNegative(delFee, 'Delivery fee');
-    validateNonNegative(shipFee, 'Shipping fee');
     validateNonNegative(driverCut, 'Driver cut');
 
     const updates = [
       { key: MIN_ORDER_KEY, value: String(minVal), description: 'Minimum order value' },
-      { key: DELIVERY_FEE_KEY, value: String(delFee), description: 'Delivery fee' },
-      { key: SHIPPING_FEE_KEY, value: String(shipFee), description: 'Shipping fee' },
       { key: DRIVER_CUT_KEY, value: String(driverCut), description: 'Driver flat payment per order' },
     ];
 

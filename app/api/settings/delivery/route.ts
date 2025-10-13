@@ -4,50 +4,50 @@ import { settings } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-const SHIPPING_ENABLED_KEY = 'shipping_enabled';
-const SHIPPING_MESSAGE_KEY = 'shipping_message';
-const SHIPPING_FEE_KEY = 'order_shipping_fee'; // Keep existing key for compatibility
+const DELIVERY_ENABLED_KEY = 'delivery_enabled';
+const DELIVERY_MESSAGE_KEY = 'delivery_message';
+const DELIVERY_FEE_KEY = 'delivery_fee';
 
-interface ShippingSettings {
+interface DeliverySettings {
   enabled: boolean;
   customMessage: string;
   fee: number;
 }
 
-const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
+const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
   enabled: true,
-  customMessage: 'Shipping is currently available for all orders.',
+  customMessage: 'Delivery is currently available for all orders.',
   fee: 0
 };
 
 export async function GET() {
   try {
-    // Get shipping settings
-    const shippingSettings = await db
+    // Get delivery settings
+    const deliverySettings = await db
       .select()
       .from(settings)
-      .where(eq(settings.key, SHIPPING_ENABLED_KEY));
+      .where(eq(settings.key, DELIVERY_ENABLED_KEY));
     
     const messageSettings = await db
       .select()
       .from(settings)
-      .where(eq(settings.key, SHIPPING_MESSAGE_KEY));
+      .where(eq(settings.key, DELIVERY_MESSAGE_KEY));
     
     const feeSettings = await db
       .select()
       .from(settings)
-      .where(eq(settings.key, SHIPPING_FEE_KEY));
+      .where(eq(settings.key, DELIVERY_FEE_KEY));
     
-    let shippingEnabled = DEFAULT_SHIPPING_SETTINGS.enabled;
-    let customMessage = DEFAULT_SHIPPING_SETTINGS.customMessage;
-    let fee = DEFAULT_SHIPPING_SETTINGS.fee;
+    let deliveryEnabled = DEFAULT_DELIVERY_SETTINGS.enabled;
+    let customMessage = DEFAULT_DELIVERY_SETTINGS.customMessage;
+    let fee = DEFAULT_DELIVERY_SETTINGS.fee;
 
     // Parse existing settings
-    if (shippingSettings.length > 0) {
+    if (deliverySettings.length > 0) {
       try {
-        shippingEnabled = shippingSettings[0].value === 'true';
+        deliveryEnabled = deliverySettings[0].value === 'true';
       } catch (error) {
-        console.error('Error parsing shipping enabled setting:', error);
+        console.error('Error parsing delivery enabled setting:', error);
       }
     }
 
@@ -59,18 +59,18 @@ export async function GET() {
       try {
         fee = parseFloat(feeSettings[0].value) || 0;
       } catch (error) {
-        console.error('Error parsing shipping fee setting:', error);
+        console.error('Error parsing delivery fee setting:', error);
       }
     }
 
     // Create default settings if they don't exist
-    if (shippingSettings.length === 0) {
+    if (deliverySettings.length === 0) {
       await db.insert(settings).values({
         id: uuidv4(),
-        key: SHIPPING_ENABLED_KEY,
-        value: String(DEFAULT_SHIPPING_SETTINGS.enabled),
+        key: DELIVERY_ENABLED_KEY,
+        value: String(DEFAULT_DELIVERY_SETTINGS.enabled),
         type: 'boolean',
-        description: 'Enable or disable shipping functionality',
+        description: 'Enable or disable delivery functionality',
         isActive: true,
       });
     }
@@ -78,10 +78,10 @@ export async function GET() {
     if (messageSettings.length === 0) {
       await db.insert(settings).values({
         id: uuidv4(),
-        key: SHIPPING_MESSAGE_KEY,
-        value: DEFAULT_SHIPPING_SETTINGS.customMessage,
+        key: DELIVERY_MESSAGE_KEY,
+        value: DEFAULT_DELIVERY_SETTINGS.customMessage,
         type: 'string',
-        description: 'Custom message to display when shipping is disabled',
+        description: 'Custom message to display when delivery is disabled',
         isActive: true,
       });
     }
@@ -89,23 +89,23 @@ export async function GET() {
     if (feeSettings.length === 0) {
       await db.insert(settings).values({
         id: uuidv4(),
-        key: SHIPPING_FEE_KEY,
-        value: String(DEFAULT_SHIPPING_SETTINGS.fee),
+        key: DELIVERY_FEE_KEY,
+        value: String(DEFAULT_DELIVERY_SETTINGS.fee),
         type: 'number',
-        description: 'Shipping fee amount',
+        description: 'Delivery fee amount',
         isActive: true,
       });
     }
 
     return NextResponse.json({
-      enabled: shippingEnabled,
+      enabled: deliveryEnabled,
       customMessage: customMessage,
       fee: fee
     });
   } catch (error) {
-    console.error('Error getting shipping settings:', error);
+    console.error('Error getting delivery settings:', error);
     return NextResponse.json(
-      { error: 'Failed to get shipping settings' },
+      { error: 'Failed to get delivery settings' },
       { status: 500 }
     );
   }
@@ -144,11 +144,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update or create shipping enabled setting
+    // Update or create delivery enabled setting
     const existingEnabledSetting = await db
       .select()
       .from(settings)
-      .where(eq(settings.key, SHIPPING_ENABLED_KEY))
+      .where(eq(settings.key, DELIVERY_ENABLED_KEY))
       .limit(1);
 
     if (existingEnabledSetting.length > 0) {
@@ -158,14 +158,14 @@ export async function POST(req: NextRequest) {
           value: String(enabled),
           updatedAt: new Date()
         })
-        .where(eq(settings.key, SHIPPING_ENABLED_KEY));
+        .where(eq(settings.key, DELIVERY_ENABLED_KEY));
     } else {
       await db.insert(settings).values({
         id: uuidv4(),
-        key: SHIPPING_ENABLED_KEY,
+        key: DELIVERY_ENABLED_KEY,
         value: String(enabled),
         type: 'boolean',
-        description: 'Enable or disable shipping functionality',
+        description: 'Enable or disable delivery functionality',
         isActive: true,
       });
     }
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
     const existingMessageSetting = await db
       .select()
       .from(settings)
-      .where(eq(settings.key, SHIPPING_MESSAGE_KEY))
+      .where(eq(settings.key, DELIVERY_MESSAGE_KEY))
       .limit(1);
 
     if (existingMessageSetting.length > 0) {
@@ -184,14 +184,14 @@ export async function POST(req: NextRequest) {
           value: customMessage,
           updatedAt: new Date()
         })
-        .where(eq(settings.key, SHIPPING_MESSAGE_KEY));
+        .where(eq(settings.key, DELIVERY_MESSAGE_KEY));
     } else {
       await db.insert(settings).values({
         id: uuidv4(),
-        key: SHIPPING_MESSAGE_KEY,
+        key: DELIVERY_MESSAGE_KEY,
         value: customMessage,
         type: 'string',
-        description: 'Custom message to display when shipping is disabled',
+        description: 'Custom message to display when delivery is disabled',
         isActive: true,
       });
     }
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
     const existingFeeSetting = await db
       .select()
       .from(settings)
-      .where(eq(settings.key, SHIPPING_FEE_KEY))
+      .where(eq(settings.key, DELIVERY_FEE_KEY))
       .limit(1);
 
     if (existingFeeSetting.length > 0) {
@@ -210,31 +210,26 @@ export async function POST(req: NextRequest) {
           value: String(fee),
           updatedAt: new Date()
         })
-        .where(eq(settings.key, SHIPPING_FEE_KEY));
+        .where(eq(settings.key, DELIVERY_FEE_KEY));
     } else {
       await db.insert(settings).values({
         id: uuidv4(),
-        key: SHIPPING_FEE_KEY,
+        key: DELIVERY_FEE_KEY,
         value: String(fee),
         type: 'number',
-        description: 'Shipping fee amount',
+        description: 'Delivery fee amount',
         isActive: true,
       });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Shipping settings updated successfully',
-      settings: {
-        enabled,
-        customMessage,
-        fee
-      }
+      message: 'Delivery settings updated successfully'
     });
   } catch (error) {
-    console.error('Error updating shipping settings:', error);
+    console.error('Error updating delivery settings:', error);
     return NextResponse.json(
-      { error: 'Failed to update shipping settings' },
+      { error: 'Failed to update delivery settings' },
       { status: 500 }
     );
   }

@@ -66,15 +66,21 @@ export default function SettingsPage() {
   // Order settings
   const [orderSettings, setOrderSettings] = useState({
     minimum_order_value: '',
-    delivery_fee: '',
-    shipping_fee: '',
     driver_cut_flat: '',
+  });
+
+  // Delivery settings
+  const [deliverySettings, setDeliverySettings] = useState({
+    enabled: true,
+    customMessage: 'Delivery is currently available for all orders.',
+    fee: 0
   });
 
   // Shipping settings
   const [shippingSettings, setShippingSettings] = useState({
     enabled: true,
-    customMessage: 'Shipping is currently available for all orders.'
+    customMessage: 'Shipping is currently available for all orders.',
+    fee: 0
   });
 
   useEffect(() => {
@@ -83,13 +89,14 @@ export default function SettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes, shippingRes] = await Promise.all([
+      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes, deliveryRes, shippingRes] = await Promise.all([
         fetch('/api/settings/stock-management'),
         fetch('/api/settings/tax-settings'),
         fetch('/api/settings/loyalty'),
         fetch('/api/settings/appearance'),
         fetch('/api/settings/store'),
         fetch('/api/settings/order-config'),
+        fetch('/api/settings/delivery'),
         fetch('/api/settings/shipping')
       ]);
       
@@ -99,6 +106,7 @@ export default function SettingsPage() {
       const appearanceData = await appearanceRes.json();
       const storeData = await storeRes.json();
       const orderData = await orderRes.json();
+      const deliveryData = await deliveryRes.json();
       const shippingData = await shippingRes.json();
       
       setStockManagementEnabled(stockData.stockManagementEnabled);
@@ -120,17 +128,25 @@ export default function SettingsPage() {
       if (orderData.success) {
         setOrderSettings({
           minimum_order_value: orderData.settings.minimum_order_value !== undefined ? String(orderData.settings.minimum_order_value) : '',
-          delivery_fee: orderData.settings.delivery_fee !== undefined ? String(orderData.settings.delivery_fee) : '',
-          shipping_fee: orderData.settings.shipping_fee !== undefined ? String(orderData.settings.shipping_fee) : '',
           driver_cut_flat: orderData.settings.driver_cut_flat !== undefined ? String(orderData.settings.driver_cut_flat) : '',
         });
       }
 
+      // Set delivery settings
+      if (deliveryData.enabled !== undefined && deliveryData.customMessage !== undefined && deliveryData.fee !== undefined) {
+        setDeliverySettings({
+          enabled: deliveryData.enabled,
+          customMessage: deliveryData.customMessage,
+          fee: deliveryData.fee
+        });
+      }
+
       // Set shipping settings
-      if (shippingData.enabled !== undefined && shippingData.customMessage !== undefined) {
+      if (shippingData.enabled !== undefined && shippingData.customMessage !== undefined && shippingData.fee !== undefined) {
         setShippingSettings({
           enabled: shippingData.enabled,
-          customMessage: shippingData.customMessage
+          customMessage: shippingData.customMessage,
+          fee: shippingData.fee
         });
       }
     } catch (err) {
@@ -426,8 +442,6 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           minimum_order_value: orderSettings.minimum_order_value,
-          delivery_fee: orderSettings.delivery_fee,
-          shipping_fee: orderSettings.shipping_fee,
           driver_cut_flat: orderSettings.driver_cut_flat,
         })
       });
@@ -476,6 +490,38 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDeliveryToggle = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      
+      const newEnabled = !deliverySettings.enabled;
+      
+      const response = await fetch('/api/settings/delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          enabled: newEnabled, 
+          customMessage: deliverySettings.customMessage,
+          fee: deliverySettings.fee
+        })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update delivery settings');
+      }
+      
+      setDeliverySettings(prev => ({ ...prev, enabled: newEnabled }));
+      setSuccess(`Delivery ${newEnabled ? 'enabled' : 'disabled'} successfully`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleShippingToggle = async () => {
     try {
       setSaving(true);
@@ -488,7 +534,8 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           enabled: newEnabled, 
-          customMessage: shippingSettings.customMessage 
+          customMessage: shippingSettings.customMessage,
+          fee: shippingSettings.fee
         })
       });
       
@@ -507,8 +554,55 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDeliveryMessageChange = (message: string) => {
+    setDeliverySettings(prev => ({ ...prev, customMessage: message }));
+  };
+
+  const handleDeliveryFeeChange = (fee: string) => {
+    setDeliverySettings(prev => ({ ...prev, fee: parseFloat(fee) || 0 }));
+  };
+
   const handleShippingMessageChange = (message: string) => {
     setShippingSettings(prev => ({ ...prev, customMessage: message }));
+  };
+
+  const handleShippingFeeChange = (fee: string) => {
+    setShippingSettings(prev => ({ ...prev, fee: parseFloat(fee) || 0 }));
+  };
+
+  const handleSaveDeliverySettings = async () => {
+    try {
+      setSaving(true);
+      setError('');
+
+      // Validate message length
+      if (deliverySettings.customMessage.length > 1000) {
+        throw new Error('Custom message cannot exceed 1000 characters');
+      }
+
+      // Validate fee
+      if (deliverySettings.fee < 0) {
+        throw new Error('Delivery fee cannot be negative');
+      }
+
+      const response = await fetch('/api/settings/delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deliverySettings)
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update delivery settings');
+      }
+
+      setSuccess('Delivery settings updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveShippingSettings = async () => {
@@ -519,6 +613,11 @@ export default function SettingsPage() {
       // Validate message length
       if (shippingSettings.customMessage.length > 1000) {
         throw new Error('Custom message cannot exceed 1000 characters');
+      }
+
+      // Validate fee
+      if (shippingSettings.fee < 0) {
+        throw new Error('Shipping fee cannot be negative');
       }
 
       const response = await fetch('/api/settings/shipping', {
@@ -941,9 +1040,9 @@ export default function SettingsPage() {
         {/* Order Settings Section */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-800">Order & Delivery Settings</h2>
+            <h2 className="text-xl font-semibold text-gray-800">Order Settings</h2>
             <p className="text-gray-600 text-sm mt-1">
-              Configure order minimums and fees applied during checkout
+              Configure general order settings and driver payments
             </p>
           </div>
 
@@ -969,54 +1068,6 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 Orders below this amount may be blocked or incur additional fees
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Delivery Fee
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-gray-500">
-                  <CurrencySymbol />
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={orderSettings.delivery_fee}
-                  onChange={(e) => handleOrderSettingChange('delivery_fee', e.target.value)}
-                  inputMode="decimal"
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Flat delivery fee added to delivery orders
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Shipping Fee
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-gray-500">
-                  <CurrencySymbol />
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={orderSettings.shipping_fee}
-                  onChange={(e) => handleOrderSettingChange('shipping_fee', e.target.value)}
-                  inputMode="decimal"
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Flat shipping fee applied to shipped orders
               </p>
             </div>
 
@@ -1056,6 +1107,177 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Delivery Settings Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-800">Delivery Settings</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Control delivery availability, fees, and display custom messages to customers
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {/* Delivery Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-700">Enable Delivery</h3>
+                <p className="text-sm text-gray-500">
+                  When disabled, customers won't be able to select delivery as an option
+                </p>
+              </div>
+              <button
+                onClick={handleDeliveryToggle}
+                disabled={saving}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  deliverySettings.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    deliverySettings.enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Status Indicator */}
+            <div className={`p-4 rounded-lg border-2 ${
+              deliverySettings.enabled 
+                ? 'border-green-200 bg-green-50' 
+                : 'border-red-200 bg-red-50'
+            }`}>
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-3 ${
+                  deliverySettings.enabled ? 'bg-green-500' : 'bg-red-500'
+                }`}></div>
+                <span className={`font-medium ${
+                  deliverySettings.enabled ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  Delivery is currently {deliverySettings.enabled ? 'ENABLED' : 'DISABLED'}
+                </span>
+              </div>
+              <p className={`text-sm mt-2 ${
+                deliverySettings.enabled ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {deliverySettings.enabled 
+                  ? 'Customers can select delivery as an order type'
+                  : 'Delivery option will be disabled or hidden from customers'
+                }
+              </p>
+            </div>
+
+            {/* Delivery Fee */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Delivery Fee
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">
+                  <CurrencySymbol />
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={deliverySettings.fee}
+                  onChange={(e) => handleDeliveryFeeChange(e.target.value)}
+                  inputMode="decimal"
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Flat delivery fee added to delivery orders
+              </p>
+            </div>
+
+            {/* Custom Message */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Custom Message
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                This message will be displayed to customers on the frontend. 
+                {!deliverySettings.enabled && ' It will be shown when delivery is disabled.'}
+              </p>
+              <textarea
+                value={deliverySettings.customMessage}
+                onChange={(e) => handleDeliveryMessageChange(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical"
+                placeholder="Enter a custom message for customers..."
+                rows={3}
+                maxLength={1000}
+              />
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-xs text-gray-400">
+                  {deliverySettings.customMessage.length}/1000 characters
+                </span>
+                {deliverySettings.customMessage.length > 800 && (
+                  <span className="text-xs text-orange-600">
+                    Approaching character limit
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="border-t pt-4">
+              <h4 className="text-md font-medium text-gray-700 mb-3">Preview</h4>
+              <div className={`p-4 rounded-lg border-2 ${
+                deliverySettings.enabled 
+                  ? 'border-blue-200 bg-blue-50' 
+                  : 'border-orange-200 bg-orange-50'
+              }`}>
+                <div className="flex items-start">
+                  <div className={`w-5 h-5 rounded-full mr-3 mt-0.5 flex items-center justify-center ${
+                    deliverySettings.enabled ? 'bg-blue-500' : 'bg-orange-500'
+                  }`}>
+                    {deliverySettings.enabled ? (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${
+                      deliverySettings.enabled ? 'text-blue-800' : 'text-orange-800'
+                    }`}>
+                      {deliverySettings.enabled ? 'Delivery Available' : 'Delivery Notice'}
+                    </p>
+                    <p className={`text-sm mt-1 ${
+                      deliverySettings.enabled ? 'text-blue-700' : 'text-orange-700'
+                    }`}>
+                      {deliverySettings.customMessage || 'No custom message set'}
+                    </p>
+                    {deliverySettings.enabled && deliverySettings.fee > 0 && (
+                      <p className={`text-xs mt-1 ${
+                        deliverySettings.enabled ? 'text-blue-600' : 'text-orange-600'
+                      }`}>
+                        Delivery fee: <CurrencySymbol />{deliverySettings.fee.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleSaveDeliverySettings}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Delivery Settings'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Shipping Settings Section */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="mb-6">
@@ -1071,7 +1293,7 @@ export default function SettingsPage() {
               <div>
                 <h3 className="text-lg font-medium text-gray-700">Enable Shipping</h3>
                 <p className="text-sm text-gray-500">
-                  When disabled, customers won't be able to proceed with checkout
+                  When disabled, customers won't be able to select shipping as an option
                 </p>
               </div>
               <button
@@ -1109,9 +1331,34 @@ export default function SettingsPage() {
                 shippingSettings.enabled ? 'text-green-700' : 'text-red-700'
               }`}>
                 {shippingSettings.enabled 
-                  ? 'Customers can proceed with checkout and place orders'
-                  : 'Customers will see a message and cannot complete checkout'
+                  ? 'Customers can select shipping as an order type'
+                  : 'Shipping option will be disabled or hidden from customers'
                 }
+              </p>
+            </div>
+
+            {/* Shipping Fee */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Shipping Fee
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">
+                  <CurrencySymbol />
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={shippingSettings.fee}
+                  onChange={(e) => handleShippingFeeChange(e.target.value)}
+                  inputMode="decimal"
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Flat shipping fee applied to shipped orders
               </p>
             </div>
 
@@ -1177,6 +1424,13 @@ export default function SettingsPage() {
                     }`}>
                       {shippingSettings.customMessage || 'No custom message set'}
                     </p>
+                    {shippingSettings.enabled && shippingSettings.fee > 0 && (
+                      <p className={`text-xs mt-1 ${
+                        shippingSettings.enabled ? 'text-blue-600' : 'text-orange-600'
+                      }`}>
+                        Shipping fee: <CurrencySymbol />{shippingSettings.fee.toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
