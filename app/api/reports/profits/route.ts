@@ -67,13 +67,15 @@ export async function GET(req: NextRequest) {
       costPrice: row.item.costPrice ? parseFloat(row.item.costPrice) : undefined,
       totalPrice: parseFloat(row.item.totalPrice),
       totalCost: row.item.totalCost ? parseFloat(row.item.totalCost) : undefined,
-      isWeightBased: row.product?.stockManagementType === 'weight'
+      isWeightBased: row.product?.stockManagementType === 'weight',
+      orderType: row.order.orderType || 'pickup',
+      orderId: row.order.id
     }));
 
     // Calculate profits for each item
     const profitData = orderItemsData.map(item => ({
       ...item,
-      profit: calculateItemProfit(item)
+      profit: calculateItemProfit(item, orderItemsData)
     }));
 
     // Calculate overall summary
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
       if (itemData) {
         orderData.items.push({
           ...itemData,
-          profit: calculateItemProfit(itemData)
+          profit: calculateItemProfit(itemData, orderItemsData)
         });
       }
     });

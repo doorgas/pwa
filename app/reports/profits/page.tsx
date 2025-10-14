@@ -16,6 +16,8 @@ interface ProfitReportData {
   summary: {
     totalRevenue: number;
     totalCost: number;
+    totalDriverPayments: number;
+    totalCostWithDriver: number;
     totalProfit: number;
     averageMargin: number;
     profitableItems: number;
@@ -41,6 +43,8 @@ interface ProfitReportData {
       profit: {
         revenue: number;
         cost: number;
+        driverPayment: number;
+        totalCost: number;
         profit: number;
         margin: number;
         isProfit: boolean;
@@ -49,6 +53,8 @@ interface ProfitReportData {
     orderSummary: {
       totalRevenue: number;
       totalCost: number;
+      totalDriverPayments: number;
+      totalCostWithDriver: number;
       totalProfit: number;
       averageMargin: number;
     };
@@ -203,14 +209,16 @@ export default function ProfitsReport() {
       doc.text('Summary', 20, 45);
       doc.setFontSize(10);
       doc.text(`Total Revenue: $${currentData.summary.totalRevenue.toFixed(2)}`, 20, 55);
-      doc.text(`Total Cost: $${currentData.summary.totalCost.toFixed(2)}`, 20, 62);
-      doc.text(`Total Profit: $${currentData.summary.totalProfit.toFixed(2)}`, 20, 69);
-      doc.text(`Average Margin: ${currentData.summary.averageMargin.toFixed(1)}%`, 20, 76);
-      doc.text(`Profitable Items: ${currentData.summary.profitableItems}`, 20, 83);
-      doc.text(`Loss Items: ${currentData.summary.lossItems}`, 20, 90);
+      doc.text(`Product Costs: $${currentData.summary.totalCost.toFixed(2)}`, 20, 62);
+      doc.text(`Driver Payments: -$${currentData.summary.totalDriverPayments.toFixed(2)}`, 20, 69);
+      doc.text(`Total Costs: $${currentData.summary.totalCostWithDriver.toFixed(2)}`, 20, 76);
+      doc.text(`Total Profit: $${currentData.summary.totalProfit.toFixed(2)}`, 20, 83);
+      doc.text(`Average Margin: ${currentData.summary.averageMargin.toFixed(1)}%`, 20, 90);
+      doc.text(`Profitable Items: ${currentData.summary.profitableItems}`, 20, 97);
+      doc.text(`Loss Items: ${currentData.summary.lossItems}`, 20, 104);
       
       // Orders data (simplified without table plugin)
-      let yPosition = 100;
+      let yPosition = 115;
       doc.setFontSize(12);
       doc.text('Orders:', 20, yPosition);
       yPosition += 10;
@@ -433,7 +441,7 @@ export default function ProfitsReport() {
         return currentData && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div className="bg-white rounded-xl shadow-lg border p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -449,12 +457,24 @@ export default function ProfitsReport() {
             <div className="bg-white rounded-xl shadow-lg border p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Cost</p>
+                  <p className="text-sm font-medium text-gray-600">Product Costs</p>
                   <p className="text-2xl font-bold text-orange-600">
                     <CurrencySymbol />{currentData.summary.totalCost.toFixed(2)}
                   </p>
                 </div>
-                <div className="text-3xl">💸</div>
+                <div className="text-3xl">📦</div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg border p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Driver Payments</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    -<CurrencySymbol />{currentData.summary.totalDriverPayments.toFixed(2)}
+                  </p>
+                </div>
+                <div className="text-3xl">🚚</div>
               </div>
             </div>
 
@@ -549,6 +569,14 @@ export default function ProfitsReport() {
                           </div>
                           
                           <div className="flex items-center space-x-4">
+                            {order.orderType === 'delivery' && order.orderSummary.totalDriverPayments > 0 && (
+                              <div className="text-right">
+                                <div className="text-sm text-gray-600">Driver Cost</div>
+                                <div className="font-medium text-red-600">
+                                  -<CurrencySymbol />{order.orderSummary.totalDriverPayments.toFixed(2)}
+                                </div>
+                              </div>
+                            )}
                             <div className="text-right">
                               <div className="text-sm text-gray-600">Profit</div>
                               <div className={`font-medium ${profitStatus.color.split(' ')[0]}`}>
@@ -574,7 +602,9 @@ export default function ProfitsReport() {
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product Cost</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Driver Payment</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Cost</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Profit</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Margin</th>
                                   </tr>
@@ -596,6 +626,12 @@ export default function ProfitsReport() {
                                         </td>
                                         <td className="px-4 py-2 text-sm text-gray-900">
                                           <CurrencySymbol />{item.profit.cost.toFixed(2)}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-red-600">
+                                          {item.profit.driverPayment > 0 ? '-' : ''}<CurrencySymbol />{item.profit.driverPayment.toFixed(2)}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-gray-900">
+                                          <CurrencySymbol />{item.profit.totalCost.toFixed(2)}
                                         </td>
                                         <td className={`px-4 py-2 text-sm font-medium ${itemProfitStatus.color.split(' ')[0]}`}>
                                           {itemProfitStatus.icon} <CurrencySymbol />{item.profit.profit.toFixed(2)}

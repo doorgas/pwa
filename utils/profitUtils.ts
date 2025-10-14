@@ -13,11 +13,15 @@ export interface OrderItemData {
   totalPrice: number;
   totalCost?: number;
   isWeightBased?: boolean;
+  orderType?: string; // delivery, pickup
+  orderId?: string;
 }
 
 export interface ProfitData {
   revenue: number;
   cost: number;
+  driverPayment: number; // $20 for delivery orders
+  totalCost: number; // cost + driverPayment
   profit: number;
   margin: number; // percentage
   isProfit: boolean;
@@ -26,6 +30,8 @@ export interface ProfitData {
 export interface OrderProfitSummary {
   totalRevenue: number;
   totalCost: number;
+  totalDriverPayments: number;
+  totalCostWithDriver: number;
   totalProfit: number;
   averageMargin: number;
   profitableItems: number;
@@ -36,7 +42,7 @@ export interface OrderProfitSummary {
 /**
  * Calculate profit for a single order item
  */
-export const calculateItemProfit = (item: OrderItemData): ProfitData => {
+export const calculateItemProfit = (item: OrderItemData, orderItems?: OrderItemData[]): ProfitData => {
   const revenue = item.totalPrice || (item.price * item.quantity);
   let cost = 0;
 
@@ -51,12 +57,26 @@ export const calculateItemProfit = (item: OrderItemData): ProfitData => {
     }
   }
 
-  const profit = revenue - cost;
+  // Calculate driver payment for delivery orders
+  // Driver gets $20 per delivery order, distributed across all items in the order
+  let driverPayment = 0;
+  if (item.orderType === 'delivery' && orderItems && item.orderId) {
+    const orderItemsForThisOrder = orderItems.filter(orderItem => orderItem.orderId === item.orderId);
+    const totalOrderItems = orderItemsForThisOrder.length;
+    if (totalOrderItems > 0) {
+      driverPayment = 20 / totalOrderItems; // Distribute $20 across all items in the order
+    }
+  }
+
+  const totalCost = cost + driverPayment;
+  const profit = revenue - totalCost;
   const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
   return {
     revenue,
     cost,
+    driverPayment,
+    totalCost,
     profit,
     margin,
     isProfit: profit >= 0
@@ -69,13 +89,15 @@ export const calculateItemProfit = (item: OrderItemData): ProfitData => {
 export const calculateOrderProfitSummary = (items: OrderItemData[]): OrderProfitSummary => {
   let totalRevenue = 0;
   let totalCost = 0;
+  let totalDriverPayments = 0;
   let profitableItems = 0;
   let lossItems = 0;
 
   items.forEach(item => {
-    const itemProfit = calculateItemProfit(item);
+    const itemProfit = calculateItemProfit(item, items);
     totalRevenue += itemProfit.revenue;
     totalCost += itemProfit.cost;
+    totalDriverPayments += itemProfit.driverPayment;
     
     if (itemProfit.isProfit) {
       profitableItems++;
@@ -84,12 +106,15 @@ export const calculateOrderProfitSummary = (items: OrderItemData[]): OrderProfit
     }
   });
 
-  const totalProfit = totalRevenue - totalCost;
+  const totalCostWithDriver = totalCost + totalDriverPayments;
+  const totalProfit = totalRevenue - totalCostWithDriver;
   const averageMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   return {
     totalRevenue,
     totalCost,
+    totalDriverPayments,
+    totalCostWithDriver,
     totalProfit,
     averageMargin,
     profitableItems,
@@ -147,16 +172,19 @@ export const getProfitMarginTier = (margin: number) => {
  */
 export const formatProfitDataForExport = (items: OrderItemData[]) => {
   return items.map(item => {
-    const profit = calculateItemProfit(item);
+    const profit = calculateItemProfit(item, items);
     return {
       'Product Name': item.productName,
       'Variant': item.variantTitle || 'N/A',
+      'Order Type': item.orderType || 'N/A',
       'Quantity': item.quantity,
       'Weight (g)': item.weightQuantity || 'N/A',
       'Unit Price': item.price.toFixed(2),
       'Cost Price': item.costPrice?.toFixed(2) || 'N/A',
       'Total Revenue': profit.revenue.toFixed(2),
-      'Total Cost': profit.cost.toFixed(2),
+      'Product Cost': profit.cost.toFixed(2),
+      'Driver Payment': profit.driverPayment > 0 ? `-${profit.driverPayment.toFixed(2)}` : profit.driverPayment.toFixed(2),
+      'Total Cost': profit.totalCost.toFixed(2),
       'Profit/Loss': profit.profit.toFixed(2),
       'Margin %': profit.margin.toFixed(2),
       'Status': profit.isProfit ? 'Profit' : 'Loss'
