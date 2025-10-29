@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/test') ||
     pathname.startsWith('/api/debug') ||
     pathname.startsWith('/api/loyalty') ||
+    pathname.startsWith('/api/upload') ||  // Skip authentication for upload API
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.endsWith('.svg') ||

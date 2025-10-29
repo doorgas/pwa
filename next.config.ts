@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Configure external packages for server components
+  serverExternalPackages: ['@vercel/blob'],
   images: {
     remotePatterns: [
       {

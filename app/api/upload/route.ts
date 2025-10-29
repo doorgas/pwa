@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 
+// Configure route to handle larger request bodies (20MB for 15MB file + form data overhead)
+export const runtime = 'nodejs';
+export const maxDuration = 30; // 30 seconds timeout for large uploads
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
