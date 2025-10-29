@@ -353,16 +353,13 @@ export default function EditProduct() {
         continue;
       }
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('directory', 'products');
-        const response = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (!response.ok) throw new Error('Failed to upload image');
-        const data = await response.json();
+        // Use the enhanced upload function with compression and retry
+        const { uploadFileWithRetry } = await import('@/utils/imageUtils');
+        const data = await uploadFileWithRetry(file, 'products');
         uploaded.push({ url: data.url, sortOrder: nextOrder++ });
       } catch (err) {
         console.error('Upload error:', err);
-        setError('Some images failed to upload. Please try again.');
+        setError(`Failed to upload ${file.name}. Please try again.`);
       }
     }
 
@@ -395,20 +392,9 @@ export default function EditProduct() {
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('directory', 'products/banner');
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload banner');
-      }
-
-      const data = await response.json();
+      // Use the enhanced upload function with compression and retry
+      const { uploadFileWithRetry } = await import('@/utils/imageUtils');
+      const data = await uploadFileWithRetry(file, 'products/banner');
       setFormData(prev => ({ ...prev, banner: data.url }));
       
       // Clear the input
