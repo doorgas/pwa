@@ -1398,7 +1398,7 @@ export default function AddProduct() {
             </div>
 
             {generatedVariants.length > 0 && (
-              <div className="mt-6 mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-sm">
+              <div className="mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-semibold">Generated Variants ({generatedVariants.length})</h4>
                   <button
