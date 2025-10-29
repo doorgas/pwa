@@ -297,9 +297,9 @@ export default function AddProduct() {
     let nextOrder = images.length;
 
     for (const file of Array.from(files)) {
-      // Validate file size (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('One or more images exceed 5MB');
+      // Validate file size (15MB limit)
+      if (file.size > 15 * 1024 * 1024) {
+        setError('One or more images exceed 15MB');
         continue;
       }
       if (!file.type.startsWith('image/')) {
@@ -1211,7 +1211,7 @@ export default function AddProduct() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Recommended: 355x250px • Images stored in 'products' directory • Supports JPG, PNG, WebP • Max 5MB per image</span>
+            <span>Recommended: 355x250px • Images stored in 'products' directory • Supports JPG, PNG, WebP • Max 15MB per image</span>
           </div>
         </div>
 

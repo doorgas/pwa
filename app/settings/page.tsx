@@ -861,7 +861,7 @@ export default function SettingsPage() {
                       </div>
                     )}
                     <p className="text-xs text-gray-500">
-                      Recommended: PNG or JPG, max 5MB. Square format works best.
+                      Recommended: PNG or JPG, max 15MB. Square format works best.
                     </p>
                     {appearanceSettings.logo_url && (
                       <button

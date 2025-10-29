@@ -181,7 +181,7 @@ export default function ImageUploader({
       </div>
 
       <p className="text-xs text-gray-500">
-        Supports JPEG, PNG, WebP, AVIF. Max size: 5MB. Images will be automatically compressed (except AVIF).
+        Supports JPEG, PNG, WebP, AVIF. Max size: 15MB. Images will be automatically compressed (except AVIF).
       </p>
     </div>
   );
