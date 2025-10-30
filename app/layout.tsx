@@ -5,7 +5,7 @@ import ClientLayoutWrapper from "./components/ClientLayoutWrapper"; // NEW wrapp
 
 export const metadata: Metadata = {
   title: "Admin Panel",
-  description: "Course management admin panel",
+  description: "Admin Panel",
 };
 
 const geistSans = Geist({
