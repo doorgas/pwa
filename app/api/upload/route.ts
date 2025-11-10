@@ -3,7 +3,7 @@ import { put } from '@vercel/blob';
 
 // Configure route to handle larger request bodies (20MB for 15MB file + form data overhead)
 export const runtime = 'nodejs';
-export const maxDuration = 60; // 60 seconds timeout for large uploads
+export const maxDuration = 10; // Vercel free plan limit // 60 seconds timeout for large uploads
 
 // Helper function to compress image on server side if needed
 async function compressImageIfNeeded(file: File): Promise<File> {

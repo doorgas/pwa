@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Optimize for Vercel free plan
+  output: 'standalone',
+  
   // Configure external packages for server components
   serverExternalPackages: ['@vercel/blob'],
   images: {
